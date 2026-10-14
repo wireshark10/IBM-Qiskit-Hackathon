@@ -1,9 +1,9 @@
-# [Team name] · Qiskit Fall Fest 2026 · Track 3: Quantum Simulation
+# GitBoosters · Qiskit Fall Fest 2026 · Track 3: Quantum Simulation
 
 | | |
 |---|---|
-| **Team** | [Team name] |
-| **Members** | [Full name, email], [Full name, email], … (as registered) |
+| **Team** | GitBoosters |
+| **Members** | Pinaksh Kumar, pinakshkr@gmail.com · Keyur Desai, Keyurkumar25071@iiitd.ac.in |
 | **Track** | 3 · Quantum Simulation (*Dynamics Under Noise*) |
 | **Level reached** | **Intermediate** (complete), plus the **Advanced** analysis on a calibrated 100-qubit IBM Heron noise model. No real-QPU run: see [Hardware runs](#hardware-runs) |
 | **Code files** | [`track3_dynamics_under_noise.ipynb`](track3_dynamics_under_noise.ipynb) (main notebook, runs top to bottom in ~5 min) · [`ising_lab.py`](ising_lab.py) (all helpers) · [`hardware/run_hardware.py`](hardware/run_hardware.py) (QPU dry-run / submit / fetch) · [`scripts/`](scripts/) (cached sweeps, notebook and slide builders) |
@@ -95,6 +95,7 @@ We simulate transverse-field and kicked Ising chains at three scales.
 ## How to run
 
 - Python version: 3.12 (tested on Linux; Colab works too)
+- Get the code: `git clone https://github.com/wireshark10/IBM-Qiskit-Hackathon && cd IBM-Qiskit-Hackathon`
 - Install: `pip install -r requirements.txt`
 - Run: open `track3_dynamics_under_noise.ipynb` and *Run All* (~5 minutes; cached sweeps load from `results/`).
   - Regenerate the caches: `python scripts/intermediate_sim.py` (~20 min) and `python scripts/emulate_advanced.py z0|stab|windows` (~25 min each).

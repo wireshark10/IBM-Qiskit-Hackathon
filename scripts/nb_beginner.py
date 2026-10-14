@@ -7,7 +7,7 @@ C = CELLS.append
 C(md(r"""
 # Dynamics Under Noise: from an 8-spin Trotter study to a certified 100-qubit kicked-Ising experiment
 
-**Qiskit Fall Fest 2026 · IIIT-Delhi · Track 3: Quantum Simulation** · Intermediate complete · Advanced analysis on a calibrated 100-qubit Heron noise model (no QPU access before the deadline)
+**Team GitBoosters** (Pinaksh Kumar, Keyur Desai) · **Qiskit Fall Fest 2026 · IIIT-Delhi · Track 3: Quantum Simulation** · Intermediate complete · Advanced analysis on a calibrated 100-qubit Heron noise model (no QPU access before the deadline)
 
 This notebook covers all three levels of the track. It runs top to bottom. The heavy noisy-simulation sweeps load from `results/` by default, so the whole notebook finishes in a few minutes. Set `RECOMPUTE = True` to regenerate the simulations. The QPU submission script is complete and validated (`hardware/run_hardware.py`). Any hardware results placed in `results/` are picked up automatically.
 
@@ -33,9 +33,10 @@ Every helper lives in [`ising_lab.py`](ising_lab.py), next to this notebook. Tha
 """))
 
 C(code(r"""
-# On Google Colab, uncomment the next two lines first:
+# On Google Colab, uncomment the next three lines first:
 # !pip install -q "qiskit[visualization]==2.5.2" "qiskit-aer==0.17.2" "qiskit-ibm-runtime==0.50.0"
-# !git clone -q --depth 1 https://github.com/REPO_OWNER/REPO_NAME && %cd REPO_NAME
+# !git clone -q --depth 1 https://github.com/wireshark10/IBM-Qiskit-Hackathon
+# %cd IBM-Qiskit-Hackathon
 
 RECOMPUTE = False         # True: re-run every noisy-simulator sweep instead of loading results/
                           #       (12-spin ladder ~20 min + 100-qubit emulation ~25 min x 3 parts)
