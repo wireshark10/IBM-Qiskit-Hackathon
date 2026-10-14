@@ -70,7 +70,7 @@ slides.append(f"""
  <div class="tile"><b>{s('trust_headline', 'trust horizon')}</b><span>{s('trust_sub', 'deepest depth where mitigated = exact')}</span></div>
 </div>
 <ul>
- <li><b>Beginner:</b> for Z observables from |0…0⟩, Lie-Trotter <i>is</i> Suzuki-Trotter, exactly. Mx needs 2nd order: 13× fewer CX for 0.01 accuracy.</li>
+ <li><b>Beginner:</b> for Z observables from |0…0⟩, Lie-Trotter <i>is</i> Suzuki-Trotter, exactly. Mx needs 2nd order: 12× fewer CX for 0.01 accuracy (154 vs 1834).</li>
  <li><b>Intermediate:</b> 2nd-order accuracy at 1st-order CZ cost. Our own TREX + ZNE on FakeFez noise. The noise-optimal Trotter step.</li>
  <li><b>Advanced:</b> 100-qubit kicked Ising (0 SWAPs) on a noise model from the chosen line's calibration, with TREX + ZNE, certified against exact answers at <b>every</b> depth. QPU jobs prepared and validated; no QPU access before the deadline.</li>
 </ul>
@@ -90,7 +90,7 @@ slides.append(f"""
 <li>Strip both boundary pieces: Lie and Suzuki apply the <b>same gates</b> for M<sub>z</sub>, ⟨Z<sub>0</sub>Z<sub>r</sub>⟩ (difference 1e-16). Lie is secretly 2nd order (slope 2.00).</li>
 <li>For M<sub>x</sub> the final ZZ(Δt/2) is the correction: Lie is 1st order (slope 1.02), Δt = 0.015 vs 0.18.</li>
 <li>Merging adjacent half-steps: 2nd order at <b>1st-order CX cost</b>.</li>
-</ul><div class="key">Cheapest correct choice: Lie for Z-only; merged Suzuki (Δt = 2/13) for M<sub>x</sub>.</div></div></div>
+</ul><div class="key">Cheapest correct choice: Lie for Z-only; merged Suzuki (Δt = 2/11, 154 CX) for M<sub>x</sub>; Δt = 2/12 (168 CX) for both.</div></div></div>
 <div class="foot"><span>exact reference: scipy.linalg.expm · circuits: PauliEvolutionGate + LieTrotter / SuzukiTrotter</span><span>§1</span></div>
 """)
 
@@ -107,7 +107,7 @@ slides.append(f"""
 <li>Kicked Ising at θ<sub>J</sub> = −π/2: each RZZ is <b>one CZ</b>. 100 qubits, 20 steps: {s('max_cz','1881')} CZ, 0 SWAPs.</li>
 </ul></div>
 <div>{fig('i2_tradeoff')}
-<div class="key">Noise-optimal step: total error = Trotter (∝Δt²) + noise (∝ #CZ ∝ 1/Δt). Δt = 0.25 beats the "Trotter-only" Δt ≈ 0.15 once noise is included.</div></div></div>
+<div class="key">Noise-limited plateau: for Δt ≈ 0.25–0.4 the raw error is flat (≈0.07), and finer steps make it worse (0.105 at Δt = 0.167). After ZNE all Δt ≤ 0.4 agree within shot noise, so the Trotter-only Δt ≈ 0.15 buys nothing and costs 50% more CZ.</div></div></div>
 <div class="foot"><span>ESP = Π(1−ε_gate)·Π(1−ε_readout) from FakeFez calibration</span><span>§2.1, §2.4</span></div>
 """)
 

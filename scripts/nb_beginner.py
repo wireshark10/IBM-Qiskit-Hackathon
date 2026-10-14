@@ -37,7 +37,8 @@ C(code(r"""
 # !pip install -q "qiskit[visualization]==2.5.2" "qiskit-aer==0.17.2" "qiskit-ibm-runtime==0.50.0"
 # !git clone -q --depth 1 https://github.com/REPO_OWNER/REPO_NAME && %cd REPO_NAME
 
-RECOMPUTE = False         # True: re-run the noisy-simulator sweeps (~15 min) instead of loading results/
+RECOMPUTE = False         # True: re-run every noisy-simulator sweep instead of loading results/
+                          #       (12-spin ladder ~20 min + 100-qubit emulation ~25 min x 3 parts)
 # QPU runs: python hardware/run_hardware.py submit | fetch   (needs a saved IBM Quantum account)
 """))
 
@@ -184,7 +185,7 @@ print("conn.  :", np.round(conn, 4))
 C(md(r"""
 ### 1.3 The largest step that keeps the error below 0.01 over the whole run
 
-For $\Delta t = 2/n$, $n=1,2,\dots$, we compare $M_z$ and $M_x$ with the exact values at **every** step time $k\Delta t$ ($k=0..n$) and record the worst error. "Largest $\Delta t$" means the smallest $n$ whose run stays below 0.01. We also checked that every finer step stays below the threshold. We include a third ordering, field terms first ("Strang"), because it changes the answer.
+For $\Delta t = 2/n$, $n=1,2,\dots$, we compare $M_z$ and $M_x$ with the exact values at **every** step time $k\Delta t$ ($k=0..n$) and record the worst error. "Largest $\Delta t$" means the smallest $n$ whose run stays below 0.01. We also check that every finer step on our scan grid (every n ≤ 60, then every 5th n up to 200) stays below the threshold, and we refine n one by one between grid points. We include a third ordering, field terms first ("Strang"), because it changes the answer.
 """))
 
 C(code(r"""
@@ -284,7 +285,8 @@ Strip those two pieces and **Lie and Suzuki apply exactly the same operator sequ
 **Cost.** Qiskit's `SuzukiTrotter` emits two ZZ half-layers per step, so it costs 2× the CX gates of Lie per step (column "CX/step"). Neighbouring half-steps of consecutive Suzuki steps merge, though. Our `tfim_trotter_circuit` merges them and drops the trivial first layer, so a 2nd-order run costs the **same CX count as a 1st-order run** (column "CX (merged)"). The cheapest correct choice:
 
 * Z-only observables: Lie-Trotter (identical to Suzuki here, with fewer gates).
-* $M_x$, or both observables at once: merged Suzuki-Trotter with $\Delta t = 2/13$, about 13× fewer CX gates than Lie at $\Delta t = 2/132$.
+* $M_x$: merged Suzuki-Trotter with $\Delta t = 2/11$ needs 154 CX, against 1834 for (merged) Lie at $\Delta t = 2/132$, about 12× fewer. In Qiskit's own builds it is 308 vs 1848, 6× fewer.
+* Both observables at once: merged Suzuki-Trotter with $\Delta t = 2/12$ (168 CX).
 """))
 
 C(code(r"""

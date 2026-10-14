@@ -14,7 +14,7 @@
 We simulate transverse-field and kicked Ising chains at three scales.
 
 - **8 spins.** For Z-basis observables measured from |0…0⟩, Lie-Trotter and Suzuki-Trotter are *the same circuit*. The cheapest "accurate enough" product formula therefore depends on what you measure. We prove this and confirm it numerically (convergence slopes 2.00 vs 1.02).
-- **12 spins, FakeFez noise.** We cut the circuit first: 2nd-order accuracy at 1st-order CZ cost, and an error-aware layout with zero SWAPs. Our own TREX + zero-noise extrapolation code then recovers the dynamics, cutting the M<sub>x</sub> error about 3×. We pick the Trotter step that minimises the *total* error under noise.
+- **12 spins, FakeFez noise.** We cut the circuit first: 2nd-order accuracy at 1st-order CZ cost, and an error-aware layout with zero SWAPs. Our own TREX + zero-noise extrapolation code then recovers the dynamics, cutting the M<sub>x</sub> error about 3×. We show that on noisy hardware a finer Trotter step stops helping: the error is noise-limited.
 - **100 qubits.** We compile a kicked (Floquet) Ising chain of up to 1881 CZ gates onto a 100-qubit line of an IBM Heron device (0 SWAPs), run it on a noise model built from that line's calibration, and mitigate it. Every number is certified against **exact** answers obtained without brute force: free-fermion Pfaffians at any depth, light-cone windows, and Clifford-point stabilisers.
 
 ## Approach
@@ -37,7 +37,7 @@ We simulate transverse-field and kicked Ising chains at three scales.
   - TREX: readout bit-flip twirling plus calibration rescaling;
   - Pauli twirling, which we show is neutral on Pauli noise;
   - ZNE by CZ folding (λ = 1, 3, 5) with linear, exponential and Richardson extrapolation.
-- *Step choice under noise:* a sweep of Trotter error against noise. The mitigated error is smallest at Δt = 0.25.
+- *Step choice under noise:* a sweep of Trotter error against noise. The raw error hits a noise-limited plateau for Δt ≈ 0.25–0.4, and finer steps make it *worse* (0.105 at Δt = 0.167 vs 0.069 at 0.25). After ZNE, all Δt ≤ 0.4 agree within shot noise. So the Trotter-only choice Δt ≈ 0.15 costs 50% more CZs for no gain.
 
 **Advanced (kicked Ising, 100 qubits)**
 - *Circuits:* U = Π R<sub>X</sub>(θ<sub>h</sub>) · Π R<sub>ZZ</sub>(−π/2), with each RZZ compiled to one CZ and the trivial first layer dropped. θ<sub>h</sub> ∈ {0, π/8, π/4, 3π/8} and t up to 20 (1881 CZ, two-qubit depth 38).

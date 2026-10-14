@@ -121,13 +121,17 @@ C(md(r"""
 **QPU status.** We could not complete IBM Quantum account verification before the deadline, so we have no real-QPU data. The submission script is complete and validated against the FakeFez target. The rest of the Advanced analysis therefore runs on a **noise model built from the calibration of the exact 100-qubit line we would use**: FakeFez is a snapshot of IBM Heron r2 *ibm_fez*. It contains per-gate CZ / SX / X depolarising errors and per-qubit asymmetric readout errors. We are explicit about what this does and does not test (see §4).
 
 How we simulate 100 noisy qubits exactly, without brute force:
-* **Clifford points, full chain.** At $\theta_h=0$ and $\theta_h=\pi/2$ the circuit is Clifford, and the noise is Pauli. A stabiliser simulation of the *entire* 100-qubit noisy circuit is therefore exact and polynomial, including CZ-folded circuits for ZNE, with real shot noise (400 / 800 shots). We compile these points by hand, using $R_{ZZ}(-\pi/2)\simeq CZ\,(S^\dagger\!\otimes S^\dagger)$ and $R_X(\pi/2)\simeq SX$, which gives the same CZ count, (t−1)·99, as the transpiled circuits.
-* **Non-Clifford angles, light-cone windows.** For $\theta_h\in\{\pi/8,\pi/4,3\pi/8\}$, Pauli noise outside the backward light cone cannot affect $\langle Z_c\rangle$. So `il.noisy_bulk_z` simulates the $(2t+1)$-qubit window of the real line exactly, averaging 200 noise trajectories. We do this at 5 different positions along the chain, which samples the spatial variation of the device noise.
+* **Clifford points, full chain.** At $\theta_h=0$ and $\theta_h=\pi/2$ the circuit is Clifford, and the noise is Pauli. A stabiliser simulation of the *entire* 100-qubit noisy circuit is therefore exact and polynomial, including CZ-folded circuits for ZNE, with real shot noise (400 shots per circuit, split over 4 TREX masks). We compile these points by hand, using $R_{ZZ}(-\pi/2)\simeq CZ\,(S^\dagger\!\otimes S^\dagger)$ and $R_X(\pi/2)\simeq SX$, which gives the same CZ count, (t−1)·99, as the transpiled circuits.
+* **Non-Clifford angles, light-cone windows.** For $\theta_h\in\{\pi/8,\pi/4,3\pi/8\}$, Pauli noise outside the backward light cone cannot affect $\langle Z_c\rangle$. So `il.noisy_bulk_z` simulates the $(2t+1)$-qubit window of the real line exactly, averaging 200 noise trajectories. We do this at 5 different positions along the chain, which samples the spatial variation of the device noise. Readout is treated analytically here: "raw" applies each qubit's readout channel, and "TREX" removes it exactly, i.e. an ideal TREX with no calibration shot noise.
 
 Mitigation is identical to the QPU plan: TREX readout twirling, then ZNE by CZ folding ($\lambda=1,3,5$, exponential and linear extrapolation).
 """))
 
 C(code(r"""
+if RECOMPUTE:                                   # ~25 min per part on a laptop; parts are independent
+    import subprocess, sys
+    for part in ("z0", "stab", "windows"):
+        subprocess.run([sys.executable, "scripts/emulate_advanced.py", part], check=True)
 emu = {k: json.load(open(RESULTS / f"emu_{k}.json")) for k in ("z0", "stab", "windows") if (RESULTS / f"emu_{k}.json").exists()}
 F = np.array([1, 3, 5])
 def zne(stack, kind="exponential"):
@@ -344,7 +348,7 @@ if emu_path.exists():
                 ax.plot(te_hw, [raw[(lab, t)]["z"][bulk(t)].mean() for t in te_hw], "o", color=COL["raw"], label="QPU raw")
         ax.set_title(f"bulk ⟨Z⟩, θ_h = {lab}"); ax.set_xlabel("Floquet steps t")
     axes[0].set_ylabel(r"bulk $\langle Z_i\rangle$"); axes[0].legend(fontsize=7)
-    plt.suptitle(f"noise model built from {emu['backend']} calibration vs the device", y=1.02)
+    plt.suptitle(f"noise-model prediction from {emu['backend']} calibration" + (" vs the device" if HAVE_HW else " (no QPU data)"), y=1.02)
     plt.tight_layout(); savefig("a5_noise_model_vs_qpu"); plt.show()
 else:
     print("results/noisy_emulation.json not found (run scripts/emulate_hw.py)")

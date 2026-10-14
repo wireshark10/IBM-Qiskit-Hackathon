@@ -763,10 +763,14 @@ def compact_noise_model(backend, path: list[int]):
                 pass
         nm.add_readout_error(ReadoutError([[1 - p01, p01], [p10, 1 - p10]]), [v])
     pos = {p: v for v, p in enumerate(path)}
+    errs = {}
     for (a, b), pr in t[g2].items():                 # every coupler inside the qubit set
         if a in pos and b in pos:
-            e = (pr.error if pr is not None and pr.error is not None else 5e-3)
-            nm.add_quantum_error(depolarizing_error(min(e * 4 / 3, 1.0), 2), g2, [pos[a], pos[b]])
+            errs[(pos[a], pos[b])] = pr.error if pr is not None and pr.error is not None else 5e-3
+    for (a, b), e in list(errs.items()):             # Aer matches qubit order: cover both orientations
+        errs.setdefault((b, a), e)
+    for (a, b), e in errs.items():
+        nm.add_quantum_error(depolarizing_error(min(e * 4 / 3, 1.0), 2), g2, [a, b])
     return nm
 
 

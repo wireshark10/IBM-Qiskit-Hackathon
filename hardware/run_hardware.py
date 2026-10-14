@@ -165,7 +165,7 @@ def dry_run():
     from qiskit_ibm_runtime import EstimatorV2, SamplerV2
     b = FakeFez()
     t0 = time.time()
-    (pa, ma), (pb, mb), (pc, mc), lay = build_all(b)
+    (pa, ma), (pb, mb), (pc, mc), lay = build_all(b, t_ki=T_KI, t_cliff=T_CLIFF)
     print(f"built full plan in {time.time()-t0:.1f}s on {b.name}: A={len(pa)} B={len(pb)} C={len(pc)} PUBs")
     print("layout cost (-log F, line of 100):", round(lay["cost_ki"], 3))
     for m in ma[:3] + ma[-2:]:

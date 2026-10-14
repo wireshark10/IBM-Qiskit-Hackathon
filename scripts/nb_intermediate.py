@@ -15,7 +15,7 @@ Same model, now with $N=12$ spins, $J=h=1$, $0\le t\le 2$, and realistic noise. 
 4. **Choose the Trotter step under noise** (§2.4). A finer step lowers Trotter error but adds CZ errors, so the optimum is a trade-off.
 5. **Run the same circuit on a real IBM QPU** and compare (§2.5).
 
-We use merged 2nd-order Suzuki-Trotter with $\Delta t = 0.25$ (8 steps to $t=2$). For 12 spins its Trotter error is 0.024 in $M_z$ and 0.018 in $M_x$. §2.4 shows why we pick this step and not the finer $\Delta t \approx 0.15$ that the 0.01 tolerance would need.
+We use merged 2nd-order Suzuki-Trotter with $\Delta t = 0.25$ (8 steps to $t=2$). For 12 spins its Trotter error is 0.024 in $M_z$ and 0.018 in $M_x$. §2.4 shows that on noisy hardware the finer $\Delta t \approx 0.15$ that the 0.01 tolerance would need buys nothing: the error is noise-limited for $\Delta t \lesssim 0.4$.
 """))
 
 C(code(r"""
@@ -96,7 +96,7 @@ print("\nerror-aware line on FakeFez:", line12)
 """))
 
 C(md(r"""
-**What the table says.** Merging and brickwork ordering (a → b) roughly halve the CZ count and the two-qubit depth. The scattered layout (d) shows what routing costs: the router's SWAPs (3 CZ each, counted as extra CZs because the transpiler decomposes them) multiply the gate count and ESP collapses. The VF2 layout pass in Qiskit's default compilation already finds a perfect line for a 12-qubit chain, so (b) and (c) are close here. Our line search optimises the same −log ESP directly (weights = 16 CZ per bond, ~30 SX per qubit). For the 100-qubit chain in §3 a default layout is no longer reliable, which is why we search for the line ourselves using calibration data.
+**What the table says.** Merging and brickwork ordering (a → b) cut the CZ count by 45% (322 → 176) and the two-qubit depth 10× (322 → 32): Qiskit's default synthesis applies the ZZ terms one after another, while the brickwork applies all even bonds, then all odd bonds, in parallel. The scattered layout (d) shows what routing costs: the router's SWAPs (3 CZ each, counted as extra CZs because the transpiler decomposes them) multiply the gate count and ESP collapses. The VF2 layout pass in Qiskit's default compilation already finds a perfect line for a 12-qubit chain, so (b) and (c) are close here. Our line search optimises the same −log ESP directly (weights = 16 CZ per bond, ~30 SX per qubit). For the 100-qubit chain in §3 a default layout is no longer reliable, which is why we search for the line ourselves using calibration data.
 
 ### 2.2 The noise model, and a check that it is faithful
 
@@ -169,7 +169,7 @@ C(md(r"""
 **Reading the ladder.**
 * **TREX on its own can look slightly *worse* than raw.** FakeFez readout is asymmetric, with $P(0|1) > P(1|0)$, so raw readout adds a positive bias $b=P(0|1)-P(1|0)$ to every $\langle Z\rangle$. Here that bias happens to offset part of the gate-noise damping. TREX removes the bias, as it should, and leaves the pure gate-noise attenuation, which ZNE then removes.
 * **The order matters.** A readout bias does not scale with the folding factor λ, so ZNE on biased data extrapolates to the wrong point. TREX first, ZNE second, is the correct order.
-* **Result.** With TREX + ZNE (exponential or Richardson), the $M_x$ error relative to the noiseless circuit drops from 0.040 to ≈0.013, about 3×. Most of what remains is the 0.018–0.024 Trotter error of $\Delta t=0.25$, which mitigation cannot remove by design.
+* **Result.** With TREX + ZNE (exponential or Richardson), the $M_x$ error relative to the *noiseless circuit* drops from 0.040 to ≈0.013, about 3×. The remaining 0.013 is residual noise plus shot noise: σ ≈ 0.01 after extrapolation with 2000 shots. Against the *exact* dynamics the mitigated error is 0.018–0.019, because the Trotter error of the circuit itself (≤ 0.018 for $M_x$) adds on top. Mitigation cannot remove Trotter error by design: it can only recover the noiseless circuit.
 """))
 
 C(md(r"""
@@ -179,7 +179,7 @@ The Beginner analysis asked for the step that keeps *Trotter* error below 0.01. 
 
 $$\varepsilon_{\text{total}}(\Delta t) \approx \underbrace{c\,\Delta t^2}_{\text{Trotter}} + \underbrace{1-e^{-\gamma\,n_{CZ}(\Delta t)}}_{\text{noise},\ n_{CZ}\propto 1/\Delta t},$$
 
-so there is an optimal $\Delta t$. Below we sweep $\Delta t = 2/n$ at the final time $t=2$: noiseless Trotter error, raw noisy error, and ZNE-mitigated error.
+so refining the step stops paying off once the noise term dominates. Below we sweep $\Delta t = 2/n$ at the final time $t=2$: noiseless Trotter error, raw noisy error, and ZNE-mitigated error.
 """))
 
 C(code(r"""
@@ -209,7 +209,11 @@ plt.tight_layout(); savefig("i2_tradeoff"); plt.show()
 """))
 
 C(md(r"""
-The $M_x$ panel is the informative one. On FakeFez-level noise the raw error is set by noise, not Trotter error, for $\Delta t \lesssim 0.4$. The ZNE-mitigated error reaches its minimum at $\Delta t = 0.25$ (176 CZ), where it meets the noiseless Trotter-error curve. The $M_z(2)$ signal is only about 0.05, so that panel is dominated by shot noise and we do not draw conclusions from it. Going finer adds CZ layers faster than it removes Trotter error. This is why our hardware runs use $\Delta t = 0.25$: the **total** error is what matters, and the Trotter-error-only criterion from the Beginner level would add ~60% more CZ gates for no net gain.
+The $M_x$ panel is the informative one.
+* **Raw (unmitigated) error: a noise-limited plateau.** For $0.25 \le \Delta t \le 0.4$ the raw error is flat at 0.065–0.07, even though the Trotter error underneath it falls 4×. Going finer makes it *worse*: 0.087 at $\Delta t=0.2$ and 0.105 at $\Delta t=0.167$, because each extra CZ layer adds more noise than it removes Trotter error.
+* **After TREX + ZNE**, every $\Delta t \le 0.4$ lands at 0.002–0.036. These differences are within this sweep's shot noise (σ ≈ 0.02 with 1000/500 shots), so they do **not** single out one optimal step.
+* **Conclusion.** Any $\Delta t$ on the plateau 0.25–0.4 is as good as the finer steps, at 33–58% fewer CZs than the $\Delta t\approx0.15$ that the Trotter-only criterion would require. We keep $\Delta t = 0.25$ (176 CZ): it sits on the plateau and keeps the Trotter error below 0.025. $\Delta t = 1/3$ (132 CZ) would have been a defensible cheaper choice.
+* The $M_z(2)$ signal is only about 0.05, so that panel is dominated by shot noise and we draw no conclusions from it.
 
 ### 2.5 The same 12-spin circuit on a real IBM QPU (prepared, not run)
 
