@@ -11,7 +11,7 @@ C(md(r"""
 
 $$U_F(\theta_h) = \prod_j R_X^{(j)}(\theta_h)\;\prod_{\langle j,k\rangle} R_{ZZ}^{(jk)}(\theta_J),\qquad \theta_J=-\pi/2,$$
 
-applied $t$ times to $|0\rangle^{\otimes N}$ on an open chain of **N = 100** qubits. We measure every $\langle Z_i\rangle$ (magnetisation $M_z$) and every nearest-neighbour $\langle Z_iZ_{i+1}\rangle$, for $\theta_h\in\{0,\pi/8,\pi/4,3\pi/8\}$ and $t\in\{1,\dots,8,10,12,14,16,20\}$. That is 52 circuits with up to **1881 CZ gates** at two-qubit depth 38.
+applied $t$ times to $|0\rangle^{\otimes N}$ on an open chain of **N = 100** qubits. The experiment (prepared for the QPU, run here on a calibrated noise model) measures every $\langle Z_i\rangle$ (magnetisation $M_z$) and every nearest-neighbour $\langle Z_iZ_{i+1}\rangle$, for $\theta_h\in\{0,\pi/8,\pi/4,3\pi/8\}$ and $t\in\{1,\dots,8,10,12,14,16,20\}$. That is 52 circuits with up to **1881 CZ gates** at two-qubit depth 38.
 
 **Why this circuit suits the hardware.** At $\theta_J=-\pi/2$ each $R_{ZZ}$ is exactly **one CZ** plus single-qubit phases. On a 1D line of physically coupled qubits, routing needs **zero SWAPs**. And on $|0\cdots0\rangle$ the first ZZ layer is only a global phase, so we delete it.
 
@@ -22,7 +22,7 @@ The challenge asks us to argue correctness without brute force. We built **three
 | Method | Gives | Cost | Valid for |
 |---|---|---|---|
 | **Light-cone window** (`il.kicked_ising_exact_profile`) | every $\langle Z_i\rangle$, $\langle Z_iZ_{i+1}\rangle$ | statevector on $2t+2$ qubits, independent of N | any model with local gates, up to $t\approx 11$ |
-| **Free fermions + Pfaffians** (`il.free_fermion_profile`) | every $\langle Z_i\rangle$ and *any* $\langle Z_iZ_j\rangle$ | $O(N^3)$, about 3 s for N = 100 | the integrable 1D kicked transverse-field Ising chain, **any depth** |
+| **Free fermions + Pfaffians** (`il.free_fermion_profile`) | every $\langle Z_i\rangle$ and *any* $\langle Z_iZ_j\rangle$ | $O(N^3)$, about 0.3 s for N = 100 at $t=20$ | the integrable 1D kicked transverse-field Ising chain, **any depth** |
 | **Clifford point** $\theta_h=\pi/2$ (`il.clifford_stabilizer`) | evolved stabilisers $S=UZ_cU^\dagger$, $\langle S\rangle=+1$ | stabiliser tableau, polynomial | any N, any depth |
 
 The free-fermion trick. With a Jordan-Wigner transformation in the X basis, $X_j=-i\gamma_{2j}\gamma_{2j+1}$ and $Z_jZ_{j+1}=-i\gamma_{2j+1}\gamma_{2j+2}$. Every gate is then a rotation of the Majorana vector, and the covariance matrix evolves as $M\to RMR^T$. $|0\cdots0\rangle=(|\text{GHZ}_+\rangle+|\text{GHZ}_-\rangle)/\sqrt2$ is a sum of two Gaussian states, and the two parity sectors do not interfere for parity-even observables. $Z_i$ itself is parity-odd: it is a non-local string. So we add a **ghost spin** that never evolves, which gives $\langle Z_i\rangle = \langle Z_gZ_i\rangle$, an even Majorana product. Wick's theorem then evaluates it as a **Pfaffian**.
@@ -80,7 +80,7 @@ for lab in TH:
 C(md(r"""
 ### 3.2 Hardware awareness: choosing 100 qubits and compiling with zero SWAPs
 
-`il.best_line` runs a beam search over the device's coupling map. It finds the simple path of 100 qubits with the lowest summed CZ infidelity, readout error and 2× SX error, using **that day's calibration**. A 1D chain on that path needs no routing. The submission script records the path, a calibration snapshot and the compiled-circuit statistics with every job.
+`il.best_line` runs a beam search over the device's coupling map. It finds the simple path of 100 qubits that minimises $-\log$ ESP of the average circuit in our plan (8 CZ per bond, 16 SX and one readout per qubit), using **that day's calibration**. A 1D chain on that path needs no routing. The submission script records the path, a calibration snapshot and the compiled-circuit statistics with every job.
 
 **Error suppression and mitigation on the QPU** (IBM Runtime `EstimatorV2`):
 * Pauli twirling of every CZ layer (16 randomisations);
@@ -88,7 +88,7 @@ C(md(r"""
 * **XpXm dynamical decoupling** on idle windows;
 * **zero-noise extrapolation** by gate folding ($\lambda = 1,3,5$), exponential extrapolation with a linear fallback.
 
-A separate `SamplerV2` job returns **raw, unmitigated bitstrings** for two angles, plus $|0\rangle^{\otimes100}$ / $|1\rangle^{\otimes100}$ calibration shots. That gives an honest baseline and long-range correlations.
+The plan also includes a `SamplerV2` job that returns **raw, unmitigated bitstrings** for two angles, plus $|0\rangle^{\otimes100}$ / $|1\rangle^{\otimes100}$ calibration shots. That gives an honest baseline and long-range correlations.
 """))
 
 C(code(r"""
@@ -122,9 +122,29 @@ C(md(r"""
 
 How we simulate 100 noisy qubits exactly, without brute force:
 * **Clifford points, full chain.** At $\theta_h=0$ and $\theta_h=\pi/2$ the circuit is Clifford, and the noise is Pauli. A stabiliser simulation of the *entire* 100-qubit noisy circuit is therefore exact and polynomial, including CZ-folded circuits for ZNE, with real shot noise (400 shots per circuit, split over 4 TREX masks). We compile these points by hand, using $R_{ZZ}(-\pi/2)\simeq CZ\,(S^\dagger\!\otimes S^\dagger)$ and $R_X(\pi/2)\simeq SX$, which gives the same CZ count, (t−1)·99, as the transpiled circuits.
-* **Non-Clifford angles, light-cone windows.** For $\theta_h\in\{\pi/8,\pi/4,3\pi/8\}$, Pauli noise outside the backward light cone cannot affect $\langle Z_c\rangle$. So `il.noisy_bulk_z` simulates the $(2t+1)$-qubit window of the real line exactly, averaging 200 noise trajectories. We do this at 5 different positions along the chain, which samples the spatial variation of the device noise. Readout is treated analytically here: "raw" applies each qubit's readout channel, and "TREX" removes it exactly, i.e. an ideal TREX with no calibration shot noise.
+* **Non-Clifford angles, light-cone windows.** For $\theta_h\in\{\pi/8,\pi/4,3\pi/8\}$, Pauli noise outside the backward light cone cannot affect $\langle Z_c\rangle$. So `il.noisy_bulk_z` simulates only the $(2t+1)$-qubit window of the real line, averaging 200 noise trajectories. This is exact up to tiny differences in how the transpiler compiles single-qubit gates at the window edge. The cell below checks the window against a full-chain density-matrix simulation. We do this at 5 different positions along the chain, which samples the spatial variation of the device noise. Readout is treated analytically here: "raw" applies each qubit's readout channel, and "TREX" removes it exactly, i.e. an ideal TREX with no calibration shot noise.
 
 Mitigation is identical to the QPU plan: TREX readout twirling, then ZNE by CZ folding ($\lambda=1,3,5$, exponential and linear extrapolation).
+"""))
+
+C(code(r"""
+# Validation of the light-cone noisy window: exact density-matrix simulation of the FULL noisy chain
+# vs the (2t+1)-qubit window, same calibrated noise model, no sampling noise.
+from qiskit_aer import AerSimulator
+def noisy_dm_z(nq, qubits, centre, t, th):
+    pm = generate_preset_pass_manager(optimization_level=2, backend=fez, initial_layout=qubits)
+    comp = il.compact_circuit(pm.run(il.kicked_ising_circuit(nq, t, th)), qubits)
+    comp.save_expectation_value(SparsePauliOp(il.pauli_label(nq, {centre: "Z"})), range(nq), label="z")
+    sim = AerSimulator(method="density_matrix", noise_model=il.compact_noise_model(fez, qubits))
+    return float(np.real(sim.run(comp).result().data(0)["z"]))
+line11, _ = il.best_line(fez.target, 11, cz_per_bond=8, sx_per_qubit=16)
+for t_, th_ in ((2, np.pi / 4), (3, np.pi / 8), (3, np.pi / 4)):
+    c_ = 5
+    full_ = noisy_dm_z(11, line11, c_, t_, th_)
+    win_ = noisy_dm_z(2 * t_ + 1, line11[c_ - t_: c_ + t_ + 1], t_, t_, th_)
+    ideal_ = il.free_fermion_profile(11, t_, th_)[0][c_]
+    print(f"t={t_}, θ_h={th_:.3f}: full noisy chain {full_:.6f} | window {win_:.6f} | "
+          f"|diff| = {abs(full_ - win_):.1e} = {abs(full_ - win_) / abs(full_ - ideal_):.1%} of the noise effect")
 """))
 
 C(code(r"""
@@ -219,8 +239,8 @@ json.dump({"emu_horizon": emu_horizon, "emu_takeaway": emu_takeaway}, open(RESUL
 
 C(md(r"""
 **What the 100-qubit emulation shows.**
-* **Local observables survive deep circuits.** At $\theta_h=0$, $M_z$ after 20 Floquet steps (1881 CZ) is 0.78 raw. TREX + ZNE brings it back to 0.96 against an exact 1, so it passes the 0.05 threshold at every depth. At the non-Clifford angles the bulk $\langle Z\rangle$ is recovered to within 0.043 up to $t=7$, the deepest window we emulated.
-* **The trust horizon depends on observable weight.** A Clifford stabiliser of weight $w=2t-1$ is sensitive to an error anywhere on its $w$ qubits. Its signal falls like $\sim e^{-\gamma w t}$. At weight 7 ($t=4$) ZNE still lands within 0.04 of +1. From weight 11 on, the $\lambda=5$ data has decayed into the shot noise, and extrapolation fails: −0.03 instead of +1 at weight 39. Any claim about high-weight correlators at this depth would need PEC/PEA-level mitigation or far more shots.
+* **Local observables survive deep circuits.** At $\theta_h=0$, $M_z$ after 20 Floquet steps (1881 CZ) is 0.78 raw. TREX + ZNE brings it back to 0.96 against an exact 1, so it passes the 0.05 threshold at every depth. The residual 0.035 at $t=20$ is 3–5σ: binomial shot noise propagated through the exponential fit gives σ ≈ 0.007–0.01 for the 100-site average with 400 shots per noise factor. It is therefore a *systematic* bias of the exponential fit, not shot noise, and the exponential-vs-linear spread (0.08 at $t=20$) flags it without needing the exact answer. At the non-Clifford angles the bulk $\langle Z\rangle$ is recovered to within 0.043 up to $t=7$, the deepest window we emulated.
+* **The trust horizon depends on observable weight.** A Clifford stabiliser of weight $w=2t-1$ is sensitive to an error on any CZ inside its light cone, and there are $\sim t^2$ of those. Its signal therefore decays much faster than a single $\langle Z_i\rangle$, which at $\theta_h=0$ only feels errors on its own two bonds. At weight 7 ($t=4$) ZNE still lands within 0.04 of +1. At weight 11 it misses by 0.11. From weight 15 on, the $\lambda=5$ data has decayed into the shot noise, which TREX rescaling by $\prod_i f_i$ amplifies further, and extrapolation fails completely: −0.03 instead of +1 at weight 39. Any claim about high-weight correlators at this depth would need PEC/PEA-level mitigation or far more shots.
 * **Internal consistency tracks the true error.** The spread between exponential and linear ZNE grows from 0.001 to 0.08 with depth, mirroring the true error. This is the warning light we would rely on where no exact answer exists.
 """))
 
@@ -294,7 +314,7 @@ for ax in axes[1]:
 for ax in axes.flat:
     ax.set_xticks([1, 2, 4, 6, 8, 10, 12, 14, 16, 20])
 axes[0, 0].legend(fontsize=8); axes[0, 0].set_ylim(0.0, 1.08)
-fig.suptitle(f"Kicked Ising, N = 100, on {backend_name}", y=1.0)
+fig.suptitle(f"Kicked Ising, N = {N_KI}: exact free-fermion references" + (f" vs {backend_name}" if HAVE_HW else ""), y=1.0)
 plt.tight_layout(); savefig("a1_mz_100q"); plt.show()
 """))
 
@@ -414,7 +434,7 @@ if raw:
 C(md(r"""
 ### 3.7 Trust horizon on the QPU
 
-We call a result **trustworthy** at depth $t$ when the mitigated $M_z$ agrees with the exact value within $\max(2\sigma, 0.05)$, where $\sigma$ is the reported standard error. Below we report, for each angle, the deepest circuit that passes. We also include an internal-consistency test that needs **no exact answer**: the spread between the exponential and linear ZNE extrapolations. When that spread grows larger than the statistical error, the extrapolation is no longer reliable. In a regime with no exact solution we would rely on this test, together with the Clifford-point decay from §3.4.
+We call a result **trustworthy** at depth $t$ when the mitigated $M_z$ agrees with the exact value within $\max(2\sigma, 0.05)$, where $\sigma$ is the reported standard error. Below we report, for each angle, the deepest circuit that passes. We also include an internal-consistency test that needs **no exact answer**: the spread between the exponential and linear ZNE extrapolations. When that spread grows larger than the statistical error, the extrapolation is no longer reliable. In a regime with no exact solution we would rely on this test, together with the Clifford-point decay from §3.3 (emulator) and §3.5 (QPU).
 
 **Which agreements actually count.** Depolarising-type noise pulls every $\langle Z\rangle$ towards 0. Where the exact answer is itself near 0 ($\theta_h=3\pi/8$ beyond $t\approx5$), even an unmitigated device "agrees", so agreement there is weak evidence; the noise-model emulation above shows this directly. The stringent tests are the high-signal observables: $\theta_h=\pi/8$ ($M_z\approx0.8$–$0.9$), $\theta_h=0$ (exactly 1), and the Clifford stabilisers (exactly +1, weight up to 39). The trust horizon we quote is governed by those.
 """))

@@ -20,7 +20,7 @@ backend = jobs["backend"] if jobs else "IBM Heron QPU"
 def fig(name, h=None):
     p = F / f"{name}.png"
     if not p.exists():
-        return f'<div class="ph">[{name}.png: pending]</div>'
+        return ''                      # never show a placeholder box on a slide
     style = f' style="max-height:{h}px"' if h else ""
     return f'<img src="{p.as_uri()}"{style}>'
 
@@ -71,7 +71,7 @@ slides.append(f"""
 </div>
 <ul>
  <li><b>Beginner:</b> for Z observables from |0…0⟩, Lie-Trotter <i>is</i> Suzuki-Trotter, exactly. Mx needs 2nd order: 12× fewer CX for 0.01 accuracy (154 vs 1834).</li>
- <li><b>Intermediate:</b> 2nd-order accuracy at 1st-order CZ cost. Our own TREX + ZNE on FakeFez noise. The noise-optimal Trotter step.</li>
+ <li><b>Intermediate:</b> 2nd-order accuracy at 1st-order CZ cost. Our own TREX + ZNE on FakeFez noise. Under noise, finer Trotter steps stop helping.</li>
  <li><b>Advanced:</b> 100-qubit kicked Ising (0 SWAPs) on a noise model from the chosen line's calibration, with TREX + ZNE, certified against exact answers at <b>every</b> depth. QPU jobs prepared and validated; no QPU access before the deadline.</li>
 </ul>
 <div style="margin-top:10px">{fig('a6_emulation', 255)}</div>
@@ -107,14 +107,14 @@ slides.append(f"""
 <li>Kicked Ising at θ<sub>J</sub> = −π/2: each RZZ is <b>one CZ</b>. 100 qubits, 20 steps: {s('max_cz','1881')} CZ, 0 SWAPs.</li>
 </ul></div>
 <div>{fig('i2_tradeoff')}
-<div class="key">Noise-limited plateau: for Δt ≈ 0.25–0.4 the raw error is flat (≈0.07), and finer steps make it worse (0.105 at Δt = 0.167). After ZNE all Δt ≤ 0.4 agree within shot noise, so the Trotter-only Δt ≈ 0.15 buys nothing and costs 50% more CZ.</div></div></div>
+<div class="key">Noise-limited plateau: for Δt ≈ 0.25–0.4 the raw error is flat (≈0.07), and finer steps make it worse (0.105 at Δt = 0.167). After ZNE all Δt ≤ 0.4 agree within shot noise, so the Trotter-only Δt ≈ 0.15 buys nothing and costs 62% more CZ (286 vs 176).</div></div></div>
 <div class="foot"><span>ESP = Π(1−ε_gate)·Π(1−ε_readout) from FakeFez calibration</span><span>§2.1, §2.4</span></div>
 """)
 
 slides.append(f"""
 <div class="tag o">INTERMEDIATE · 12 SPINS · FakeFez NOISE · OUR OWN MITIGATION CODE</div>
 <h1>Recovering the physics that noise hides</h1>
-<div class="cols"><div style="flex:1.5">{fig('i1_mitigation_ladder')}{fig('i3_hardware_tfim', 230)}</div>
+<div class="cols"><div style="flex:1.5">{fig('i1_mitigation_ladder')}{fig('i3_hardware_tfim', 230) if (F / 'i3_hardware_tfim.png').exists() else ''}</div>
 <div><ul>
 <li><b>TREX</b>: random X before readout, undone classically, then rescaled by a twirled |0…0⟩ calibration.</li>
 <li><b>ZNE</b>: every CZ folded to 3 or 5 CZs. Linear / exponential / Richardson to λ → 0.</li>
@@ -123,7 +123,7 @@ slides.append(f"""
 </ul>
 <table style="margin-top:10px"><tr><th>mean |error| vs exact</th><th>M<sub>z</sub></th><th>M<sub>x</sub></th></tr>{s('ladder_rows','')}</table>
 </div></div>
-<div class="foot"><span>same 8 circuits re-run on the QPU (Job B) for the noisy-sim vs hardware comparison</span><span>§2.2–2.5</span></div>
+<div class="foot"><span>Job B (prepared, not run) would re-run these 8 circuits on a QPU for the noisy-sim vs hardware comparison</span><span>§2.2–2.5</span></div>
 """)
 
 slides.append(f"""
@@ -147,7 +147,7 @@ slides.append(f"""
 <div class="cols"><div style="flex:2.1">{fig('a6_emulation', 520)}</div>
 <div><ul>
 <li><b>Clifford points</b> (θ<sub>h</sub> = 0, π/2): a stabiliser simulation of the <b>entire</b> noisy 100-qubit circuit is exact, so we run it at full size up to 20 steps / 1881 CZ, including folded ZNE circuits.</li>
-<li><b>Other angles</b>: noise outside the light cone cannot matter, so we simulate exact (2t+1)-qubit windows at 5 positions on the line.</li>
+<li><b>Other angles</b>: noise outside the light cone cannot matter, so we simulate (2t+1)-qubit windows at 5 positions on the line. They agree with full-chain density matrices to ≤ 4×10<sup>−4</sup>.</li>
 <li>Noise: per-gate CZ/SX errors + asymmetric readout of the <i>chosen</i> 100 qubits (ibm_fez snapshot).</li>
 </ul>
 <div class="key">{s('emu_takeaway', 'TREX + ZNE restores the exact values; see notebook §3.3.')}</div></div></div>
@@ -162,7 +162,7 @@ slides.append(f"""
 <li><b>Trust horizon</b> (|ZNE − exact| ≤ 0.05): {s('horizon_text', 'see notebook')}.</li>
 <li><b>Which agreements count</b>: noise pulls ⟨Z⟩ towards 0, so θ<sub>h</sub> = 3π/8 (exact ≈ 0) "agrees" for free. High-signal observables (θ<sub>h</sub> = 0, π/8, Clifford stabilisers) are the real test.</li>
 <li><b>Without an exact answer</b>: exponential vs linear ZNE spread, Clifford-point decay and light-cone windows (t ≲ 11).</li>
-<li><b>QPU-ready</b>: 3 jobs (EstimatorV2 with TREX + twirling + XpXm DD + ZNE; SamplerV2 raw + readout calibration), PUBs validated, ≈ 4 Open Plan minutes. Every CZ count equals (t−1)·99, proving 0 SWAPs.</li>
+<li><b>QPU-ready</b>: 3 jobs (EstimatorV2 with TREX + twirling + XpXm DD + ZNE; SamplerV2 raw + readout calibration), PUBs validated, ≈ 4 Open Plan minutes (estimate); a ~1–2 min <code>--quick</code> subset. Every CZ count equals (t−1)·99, proving 0 SWAPs.</li>
 </ul><div class="key"><b>The horizon depends on observable weight.</b> Local ⟨Z⟩ at 1881 CZ is recovered to 0.96 (exact 1), but a Pauli spread over 15+ qubits decays below the shot-noise floor at λ = 5 and ZNE cannot bring it back: weight-7 stabilisers pass, weight-11 and beyond fail.</div></div></div>
 <div class="foot"><span>exact M<sub>z</sub>(t) for the 4 angles on the left; free-fermion Pfaffians, 0.3 s each</span><span>§3.2–3.7</span></div>
 """)

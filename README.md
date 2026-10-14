@@ -15,7 +15,7 @@ We simulate transverse-field and kicked Ising chains at three scales.
 
 - **8 spins.** For Z-basis observables measured from |0…0⟩, Lie-Trotter and Suzuki-Trotter are *the same circuit*. The cheapest "accurate enough" product formula therefore depends on what you measure. We prove this and confirm it numerically (convergence slopes 2.00 vs 1.02).
 - **12 spins, FakeFez noise.** We cut the circuit first: 2nd-order accuracy at 1st-order CZ cost, and an error-aware layout with zero SWAPs. Our own TREX + zero-noise extrapolation code then recovers the dynamics, cutting the M<sub>x</sub> error about 3×. We show that on noisy hardware a finer Trotter step stops helping: the error is noise-limited.
-- **100 qubits.** We compile a kicked (Floquet) Ising chain of up to 1881 CZ gates onto a 100-qubit line of an IBM Heron device (0 SWAPs), run it on a noise model built from that line's calibration, and mitigate it. Every number is certified against **exact** answers obtained without brute force: free-fermion Pfaffians at any depth, light-cone windows, and Clifford-point stabilisers.
+- **100 qubits.** We compile a kicked (Floquet) Ising chain of up to 1881 CZ gates onto a 100-qubit line of IBM's 156-qubit Heron r2 layout (FakeFez target, 0 SWAPs). We run it on a noise model built from that line's calibration, and mitigate it. Every number is certified against **exact** answers obtained without brute force: free-fermion Pfaffians at any depth, light-cone windows, and Clifford-point stabilisers.
 
 ## Approach
 
@@ -37,7 +37,7 @@ We simulate transverse-field and kicked Ising chains at three scales.
   - TREX: readout bit-flip twirling plus calibration rescaling;
   - Pauli twirling, which we show is neutral on Pauli noise;
   - ZNE by CZ folding (λ = 1, 3, 5) with linear, exponential and Richardson extrapolation.
-- *Step choice under noise:* a sweep of Trotter error against noise. The raw error hits a noise-limited plateau for Δt ≈ 0.25–0.4, and finer steps make it *worse* (0.105 at Δt = 0.167 vs 0.069 at 0.25). After ZNE, all Δt ≤ 0.4 agree within shot noise. So the Trotter-only choice Δt ≈ 0.15 costs 50% more CZs for no gain.
+- *Step choice under noise:* a sweep of Trotter error against noise. The raw error hits a noise-limited plateau for Δt ≈ 0.25–0.4, and finer steps make it *worse* (0.105 at Δt = 0.167 vs 0.069 at 0.25). After ZNE, all Δt ≤ 0.4 agree within shot noise. So the Trotter-only choice Δt = 2/13 ≈ 0.15 (286 CZ) costs 62% more CZs than Δt = 0.25 (176 CZ) for no gain.
 
 **Advanced (kicked Ising, 100 qubits)**
 - *Circuits:* U = Π R<sub>X</sub>(θ<sub>h</sub>) · Π R<sub>ZZ</sub>(−π/2), with each RZZ compiled to one CZ and the trivial first layer dropped. θ<sub>h</sub> ∈ {0, π/8, π/4, 3π/8} and t up to 20 (1881 CZ, two-qubit depth 38).
@@ -46,7 +46,7 @@ We simulate transverse-field and kicked Ising chains at three scales.
   1. Free fermions: Jordan-Wigner Majorana covariance evolution, with a **ghost spin** that turns ⟨Z<sub>i</sub>⟩ into a Pfaffian. Exact at any depth, 0.3 s at N = 100.
   2. Light-cone windows: one (2t+2)-qubit statevector gives all 100 sites.
   3. Clifford stabilisers: ⟨U Z<sub>c</sub> U<sup>†</sup>⟩ = +1.
-- *Noisy 100-qubit runs:* at the Clifford points (θ<sub>h</sub> = 0, π/2) the full noisy 100-qubit circuit is simulated exactly with a stabiliser simulator, including CZ-folded ZNE circuits. For non-Clifford angles, exact noisy (2t+1)-qubit light-cone windows at 5 positions along the line.
+- *Noisy 100-qubit runs:* at the Clifford points (θ<sub>h</sub> = 0, π/2) the full noisy 100-qubit circuit is simulated exactly with a stabiliser simulator, including CZ-folded ZNE circuits. For non-Clifford angles, noisy (2t+1)-qubit light-cone windows at 5 positions along the line. Against full-chain density-matrix simulation they agree to ≤ 4×10⁻⁴, at most 4% of the (small) noise effect, and negligible next to the 0.05 trust threshold. The small mismatch comes from single-qubit compilation differences at the window edge.
 - *Mitigation and trust:* TREX + ZNE. A trust horizon, plus internal consistency checks that need no exact answer.
 
 ## Results
@@ -56,7 +56,7 @@ We simulate transverse-field and kicked Ising chains at three scales.
 | Largest Δt with error < 0.01, M<sub>z</sub> (Lie = Suzuki) | 0.1667 (12 steps) | exact `expm` | max err 0.0098 |
 | Largest Δt with error < 0.01, M<sub>x</sub>: Lie / Suzuki | 0.0152 / 0.1818 | exact `expm` | 1848 vs 308 CX (Qiskit build) |
 | Lie − Suzuki for M<sub>z</sub> and ⟨Z<sub>0</sub>Z<sub>5</sub>⟩ | ≤ 7e-16 | identical by construction | — |
-| 12-spin circuit to t = 2: CZ / 2q depth / ESP | 176 / 32 / 0.50 | Qiskit default: 322 / 322 / 0.30 | −45% CZ |
+| 12-spin circuit to t = 2: CZ / 2q depth / ESP | 176 / 32 / 0.50 | Qiskit default: 322 / 322 / 0.30 | −45% CZ, 10× lower 2q depth |
 | 12-spin M<sub>x</sub>, mean abs error vs noiseless circuit: raw → TREX + ZNE | 0.040 → 0.013 | noiseless Trotter circuit | ≈ 3× lower |
 | 100-qubit θ<sub>h</sub> = 0, t = 20 (1881 CZ): M<sub>z</sub> raw → TREX + ZNE | 0.78 → **0.96** | exact 1 | 0.035 |
 | 100-qubit Clifford stabilisers, TREX + ZNE: weight 7 / weight 39 | 0.96 / −0.03 | exact +1 | 0.037 (passes) / 1.03 (fails: signal below the noise floor) |
@@ -81,7 +81,7 @@ We simulate transverse-field and kicked Ising chains at three scales.
   - **A:** `EstimatorV2` with TREX, gate twirling, XpXm dynamical decoupling and gate-folding ZNE (52 kicked-Ising and 7 Clifford circuits).
   - **B:** the same options on the 12-spin TFIM circuits.
   - **C:** `SamplerV2` raw bitstrings plus readout calibration.
-- The estimated cost is ~4 of the 10 free QPU minutes.
+- The estimated cost is ~4 of the 10 free QPU minutes (an estimate, never measured). `submit --quick` runs a minimal Advanced subset (100-qubit circuits at t = 2–20, 2 Clifford checks) in ~1–2 minutes.
 - The script refuses to run on any non-Open (paid) instance.
 - `fetch` saves the results to `results/hardware_*.npz`, and the notebook's §2.5 and §3.4–3.7 then fill in automatically.
 
@@ -89,7 +89,7 @@ We simulate transverse-field and kicked Ising chains at three scales.
 
 - **No real-QPU data.** The noise model has depolarising gate errors and readout errors, but no coherent errors, crosstalk, leakage or drift. Real hardware would decay faster and shorten the ZNE trust horizon. Twirling and DD, which target exactly those effects, are in the QPU plan.
 - **Classically easy by design.** Integrability is what makes the 100-qubit results certifiable, and it also makes this particular model classically easy. With a longitudinal field, only light-cone (t ≲ 11), Clifford and consistency checks would remain.
-- **ZNE by gate folding** multiplies depth by 3–5. At the deepest circuits the λ = 5 signal approaches the noise floor. PEA or PEC would be next.
+- **ZNE by gate folding** multiplies depth by 3–5. At the deepest circuits the λ = 5 signal approaches the noise floor. The t = 20 residual (0.035, 3–5σ) is a systematic bias of the exponential fit, which the exponential-vs-linear spread flags. PEA or PEC would be next.
 - **Emulator statistics:** Clifford-point runs use 400 shots per circuit. The light-cone windows average 200 noise trajectories and carry no measurement shot noise.
 
 ## How to run

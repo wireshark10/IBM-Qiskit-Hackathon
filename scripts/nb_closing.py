@@ -11,11 +11,11 @@ C(md(r"""
 
 | Method | Works well | Breaks down | Evidence in this notebook |
 |---|---|---|---|
-| Lie-Trotter | Z-basis observables from a Z-product state (secretly 2nd order) | X-basis observables: first order, ~10× more CX for 0.01 accuracy | §1.3–1.4, slopes 2.00 vs 1.02 |
+| Lie-Trotter | Z-basis observables from a Z-product state (secretly 2nd order) | X-basis observables: first order, 12× more CX than merged Suzuki for 0.01 accuracy (1834 vs 154) | §1.3–1.4, slopes 2.00 vs 1.02 |
 | Merged Suzuki-Trotter | both observables at 1st-order CX cost | — (the error constant depends on which half-steps sit outside) | §1.3 table |
 | Trotter step chosen by Trotter error alone | noiseless simulation | on hardware, over-refining adds CZ errors faster than it removes Trotter error | §2.4 trade-off |
 | TREX | removes readout bias for any observable | assumes readout is the only measurement error; does nothing for gate noise | §2.3 |
-| ZNE (gate folding) | moderate depth, signal well above the shot noise | once the λ=5 circuit has decayed to ≈ 0, extrapolation amplifies shot noise; exponential and linear fits disagree | §2.3, §3.6 |
+| ZNE (gate folding) | moderate depth, signal well above the shot noise | once the λ=5 circuit has decayed to ≈ 0, extrapolation amplifies shot noise; exponential and linear fits disagree | §2.3, §3.3 |
 | Free-fermion certification | any N and any depth for the integrable kicked transverse-field Ising chain | adding a longitudinal field $h_z$ or 2D couplings breaks integrability | §3.1 |
 | Light-cone certification | any local circuit, any N | cost $2^{2t+2}$: about $t\le 11$ on a laptop | §3.1 |
 
@@ -24,7 +24,7 @@ C(md(r"""
 * **Classical simulability.** The 100-qubit circuits are classically easy *because* we chose an integrable 1D model. That is what makes the hardware data certifiable. The same pipeline (layout search, mitigation, trust horizon) applies unchanged to a non-integrable variant, but then only the light cone ($t\lesssim 11$), the Clifford point and internal consistency checks remain.
 * **The noise model.** Our fast simulator uses a Pauli approximation built from FakeFez calibration. It ignores coherent errors and crosstalk, so it cannot show the benefit of twirling or dynamical decoupling. Both are applied on the real device.
 * **ZNE by gate folding** triples or quintuples circuit depth. At the deepest circuits ($t\ge 16$: ~1500–1900 CZ) the λ=5 data sits near the noise floor. Probabilistic error amplification (PEA, as in Kim *et al.*) or PEC would be the next step, at a higher QPU-time cost than our 10-minute Open Plan budget allows.
-* **Statistics.** The emulator's Clifford-point runs use 400 shots per circuit, split over 4 TREX masks, matching the planned QPU budget (Job A: ~1100 shots per circuit per noise factor). Per-site values carry σ ≈ 0.05 after extrapolation; chain averages are much tighter. The light-cone windows average 200 noise trajectories and carry no measurement shot noise.
+* **Statistics.** The emulator's Clifford-point runs use 400 shots per circuit, split over 4 TREX masks, matching the planned QPU budget (Job A: ~1100 shots per circuit per noise factor). A single site carries σ ≈ 0.03–0.05 per noise factor, ≈ 0.07–0.1 after extrapolation. The 100-site $M_z$ carries σ ≈ 0.01 after extrapolation. A single stabiliser carries σ ≈ 0.06 (weight 7) to 0.17 (weight 39) per noise factor, because TREX rescaling divides by $\prod_i f_i \approx 0.3$ at weight 39. The light-cone windows average 200 noise trajectories and carry no measurement shot noise.
 
 **Next steps**
 * Run the prepared jobs on a real Heron QPU (`hardware/run_hardware.py submit`, ~4 Open Plan minutes). The notebook picks up `results/hardware_*.npz` automatically, and comparing with the emulator then measures how much noise the calibration data does *not* explain (coherent errors, crosstalk, drift).
