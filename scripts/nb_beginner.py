@@ -5,31 +5,33 @@ CELLS = []
 C = CELLS.append
 
 C(md(r"""
-# Dynamics Under Noise: from an 8-spin Trotter study to a certified 100-qubit kicked-Ising experiment
+# Dynamics under noise: Trotter errors, error mitigation and a 100-qubit kicked Ising chain
 
-**Team GitBoosters** (Pinaksh Kumar, Keyur Desai) · **Qiskit Fall Fest 2026 · IIIT-Delhi · Track 3: Quantum Simulation** · Intermediate complete · Advanced analysis on a calibrated 100-qubit Heron noise model (no QPU access before the deadline)
+Team GitBoosters (Pinaksh Kumar, Keyur Desai), Qiskit Fall Fest 2026 at IIIT-Delhi, Track 3 (Quantum Simulation).
 
-This notebook covers all three levels of the track. It runs top to bottom. The heavy noisy-simulation sweeps load from `results/` by default, so the whole notebook finishes in a few minutes. Set `RECOMPUTE = True` to regenerate the simulations. The QPU submission script is complete and validated (`hardware/run_hardware.py`). Any hardware results placed in `results/` are picked up automatically.
+We completed the Beginner and Intermediate levels. For the Advanced level we built and checked the full 100-qubit experiment, but we could not get IBM Quantum access before the deadline, so it runs on a noise model made from IBM Heron calibration data rather than on a real QPU (details in Section 3.3).
 
-| Level | What we do | Headline |
+The notebook runs top to bottom in about five minutes. The slow noisy-simulation sweeps are cached in `results/`; set `RECOMPUTE = True` to regenerate them. The hardware scripts are in `hardware/run_hardware.py`, and if hardware results are ever added to `results/`, the plots in Sections 2.5 and 3.4 to 3.7 fill in automatically.
+
+| Level | What we did | Main result |
 |---|---|---|
-| 🟢 Beginner | 8-spin TFIM, Lie vs Suzuki Trotter, exact `expm` reference | For Z observables from \|0…0⟩, Lie-Trotter **equals** Suzuki-Trotter exactly. The "why it depends on what you measure" question, proven |
-| 🟠 Intermediate | 12-spin TFIM, FakeFez noise, our own TREX + twirling + ZNE, depth cutting | 2nd-order accuracy at 1st-order CZ cost. An error-aware line layout with zero SWAPs |
-| 🔴 Advanced | Kicked (Floquet) Ising chain, **100 qubits**, compiled for IBM Heron (0 SWAPs) and run on a noise model from that line's calibration | Certified against **exact** solutions at all depths: free fermions + Pfaffians, light cones and Clifford stabilisers. Full 100-qubit noisy simulation at the Clifford points |
+| Beginner | 8-spin TFIM, Lie vs Suzuki Trotter, exact reference from `expm` | For Z observables starting from \|0…0⟩, Lie-Trotter and Suzuki-Trotter give exactly the same numbers, which is why the answer depends on what you measure |
+| Intermediate | 12-spin TFIM with FakeFez noise, our own TREX and ZNE code, shorter circuits | Second-order accuracy for the CZ cost of first order, on a qubit line that needs no SWAPs |
+| Advanced | Kicked Ising chain on 100 qubits, compiled for IBM Heron with no SWAPs and run on a noise model from that line's calibration | Results compared with exact answers at every depth (free fermions with Pfaffians, light cones, Clifford stabilisers), including a full noisy 100-qubit simulation at the Clifford points |
 
-**Contents**
+Contents
 0. Setup
 1. Beginner: getting the simulation right (8 spins)
-2. Intermediate: recovering the physics that noise hides (12 spins)
-3. Advanced: a 100-qubit kicked-Ising chain, certified without brute force
-4. Performance, limitations and what we would do next
+2. Intermediate: getting the physics back from noisy data (12 spins)
+3. Advanced: a 100-qubit kicked Ising chain, checked without brute force
+4. What worked, what didn't, and next steps
 5. Credits and references
 """))
 
 C(md(r"""
-## 0 · Setup
+## 0. Setup
 
-Every helper lives in [`ising_lab.py`](ising_lab.py), next to this notebook. That way the analysis and the hardware-submission script ([`hardware/run_hardware.py`](hardware/run_hardware.py)) use exactly the same circuits. On Colab, the first cell clones the repository so the module and the cached results are available.
+All helper functions are in [`ising_lab.py`](ising_lab.py), next to this notebook. We kept them in one module so the analysis here and the hardware script ([`hardware/run_hardware.py`](hardware/run_hardware.py)) build exactly the same circuits. On Colab, uncomment the lines in the next cell so the module and the cached results are available.
 """))
 
 C(code(r"""
@@ -75,18 +77,18 @@ def savefig(name):
 
 # ----------------------------------------------------------------------------- Beginner
 C(md(r"""
-## 1 · 🟢 Beginner: getting the simulation right (8 spins)
+## 1. Beginner: getting the simulation right (8 spins)
 
-**Model.** Open transverse-field Ising chain, $H = -J\sum_i Z_iZ_{i+1} - h\sum_i X_i$, with $N=8$, $J=h=1$, starting from $|00000000\rangle$ and evolving to $t=2$.
+The model is the open transverse-field Ising chain $H = -J\sum_i Z_iZ_{i+1} - h\sum_i X_i$ with $N=8$ and $J=h=1$. We start in $|00000000\rangle$ and evolve to $t=2$.
 
-**Exact reference.** We use `scipy.linalg.expm` as the challenge asks: $|\psi(t)\rangle = e^{-iHt}|\psi_0\rangle$ on the $2^8$-dimensional space.
+As the challenge asks, the exact reference comes from `scipy.linalg.expm`: $|\psi(t)\rangle = e^{-iHt}|\psi_0\rangle$ on the full $2^8$-dimensional space.
 
-**Product formulas.** Write $H = H_{ZZ} + H_X$. Each part is a sum of *commuting* terms, so $e^{-iH_{ZZ}\tau}$ and $e^{-iH_X\tau}$ are exact products of `RZZ` and `RX` gates. All of the Trotter error comes from splitting between the two groups:
+For the product formulas we split $H = H_{ZZ} + H_X$. The terms inside each group commute, so $e^{-iH_{ZZ}\tau}$ and $e^{-iH_X\tau}$ are exactly one layer of `RZZ` gates and one layer of `RX` gates. All of the Trotter error therefore comes from splitting between the two groups:
 
-* Lie-Trotter (1st order): $U_1(\Delta t) = e^{-iH_X\Delta t}\,e^{-iH_{ZZ}\Delta t}$
-* Suzuki-Trotter (2nd order): $U_2(\Delta t) = e^{-iH_{ZZ}\Delta t/2}\,e^{-iH_X\Delta t}\,e^{-iH_{ZZ}\Delta t/2}$
+* Lie-Trotter (first order): $U_1(\Delta t) = e^{-iH_X\Delta t}\,e^{-iH_{ZZ}\Delta t}$
+* Suzuki-Trotter (second order): $U_2(\Delta t) = e^{-iH_{ZZ}\Delta t/2}\,e^{-iH_X\Delta t}\,e^{-iH_{ZZ}\Delta t/2}$
 
-These are the orderings Qiskit's `LieTrotter` / `SuzukiTrotter` build from our `SparsePauliOp`, which lists the ZZ terms first.
+These are the orderings that Qiskit's `LieTrotter` and `SuzukiTrotter` produce from our `SparsePauliOp`, because we list the ZZ terms first.
 """))
 
 C(code(r"""
@@ -111,9 +113,9 @@ print("max |expm - eigh| over the grid:", max(np.abs(exact_state(t) - eig_state(
 """))
 
 C(md(r"""
-### 1.1 Qiskit Trotter circuits, and a fast engine that reproduces them exactly
+### 1.1 Qiskit Trotter circuits and a faster engine
 
-We build the circuits with `PauliEvolutionGate` and keep `.decompose(reps=2)`, so the Trotter error stays visible, as the README warns. Scanning hundreds of step sizes with circuits is slow, so `il.TFIMEngine` applies the same factors $e^{-iH_{ZZ}\tau}$ (diagonal) and $e^{-iH_X\tau}$ (one rotation per qubit) directly to a statevector. We check below that it matches the Qiskit circuits to machine precision.
+We build the circuits with `PauliEvolutionGate` and keep the `.decompose(reps=2)` step from the tutorial; without it the simulator applies the evolution exactly and the Trotter error disappears. Simulating circuits for hundreds of step sizes is slow, so we also wrote `il.TFIMEngine`, which applies the same two factors directly to a statevector ($e^{-iH_{ZZ}\tau}$ is diagonal and $e^{-iH_X\tau}$ is one rotation per qubit). The next cell checks that it agrees with the Qiskit circuits to machine precision.
 """))
 
 C(code(r"""
@@ -157,11 +159,11 @@ plt.tight_layout(); savefig("b1_magnetisation"); plt.show()
 """))
 
 C(md(r"""
-At the same $\Delta t$ the two formulas give **identical** $M_z$ points, but very different $M_x$ points. This is not a coincidence. We explain it in §1.4.
+With the same $\Delta t$, the two formulas give the same $M_z$ points but clearly different $M_x$ points. Section 1.4 explains why.
 
 ### 1.2 Spatial correlations at $t=2$
 
-We compute $\langle Z_0 Z_r\rangle$ (site 0 is the chain end) and the connected part $\langle Z_0Z_r\rangle-\langle Z_0\rangle\langle Z_r\rangle$, which removes the contribution of the magnetisation itself.
+We look at $\langle Z_0 Z_r\rangle$, where site 0 is the end of the chain, and at the connected part $\langle Z_0Z_r\rangle-\langle Z_0\rangle\langle Z_r\rangle$, which removes the contribution of the magnetisation itself.
 """))
 
 C(code(r"""
@@ -184,9 +186,9 @@ print("conn.  :", np.round(conn, 4))
 """))
 
 C(md(r"""
-### 1.3 The largest step that keeps the error below 0.01 over the whole run
+### 1.3 Largest step that keeps the error below 0.01 for the whole run
 
-For $\Delta t = 2/n$, $n=1,2,\dots$, we compare $M_z$ and $M_x$ with the exact values at **every** step time $k\Delta t$ ($k=0..n$) and record the worst error. "Largest $\Delta t$" means the smallest $n$ whose run stays below 0.01. We also check that every finer step on our scan grid (every n ≤ 60, then every 5th n up to 200) stays below the threshold, and we refine n one by one between grid points. We include a third ordering, field terms first ("Strang"), because it changes the answer.
+We use $\Delta t = 2/n$ for $n=1,2,\dots$ and compare $M_z$ and $M_x$ with the exact values at every step time $k\Delta t$ ($k=0,\dots,n$), keeping the worst error. The largest $\Delta t$ is then the smallest $n$ whose whole run stays below 0.01. We also checked that the finer steps on our scan grid (every $n \le 60$, then every 5th $n$ up to 200) stay below the threshold, and we go through $n$ one by one between grid points. We added a third ordering with the field terms first ("Strang") because it changes which observable is the easy one.
 """))
 
 C(code(r"""
@@ -269,24 +271,24 @@ plt.tight_layout(); savefig("b3_dt_scan"); plt.show()
 """))
 
 C(md(r"""
-### 1.4 Which formula is cheaper, and why the answer depends on what you measure
+### 1.4 Which formula is cheaper, and why it depends on what you measure
 
-Read the gate sequences in time order, starting from $|0\cdots0\rangle$:
+Write the gate sequences in time order, starting from $|0\cdots0\rangle$:
 
 * Lie: $\;ZZ(\Delta t)\,X\,ZZ\,X\cdots ZZ\,X$
 * Suzuki: $\;ZZ(\tfrac{\Delta t}{2})\,X\,ZZ(\Delta t)\,X\cdots X\,ZZ(\tfrac{\Delta t}{2})$
 
-Two boundary facts decide everything:
+Two things happen at the ends of these sequences:
 
-1. **The first ZZ layer does nothing.** $|0\cdots0\rangle$ is an eigenstate of every $Z_iZ_{i+1}$, so that layer only adds a global phase.
-2. **A final ZZ layer cannot change any Z-basis observable**, since it commutes with $Z_i$ and $Z_iZ_j$.
+1. The first ZZ layer does nothing physical. $|0\cdots0\rangle$ is an eigenstate of every $Z_iZ_{i+1}$, so this layer only adds a global phase.
+2. A ZZ layer at the very end cannot change anything measured in the Z basis, because it commutes with $Z_i$ and $Z_iZ_j$.
 
-Strip those two pieces and **Lie and Suzuki apply exactly the same operator sequence for $M_z$ and $\langle Z_0Z_r\rangle$**. So Lie-Trotter is effectively second order for Z observables: the fitted slope is 2, not 1. For $M_x$ the final half-step $ZZ(\Delta t/2)$ *does* matter. It is precisely the correction that cancels the leading error term, so Lie stays first order (slope 1) and needs a 12× smaller step (0.0152 vs 0.182). Ordering the field terms first ("Strang") moves the half-steps onto the X layers, which flips the roles: $M_x$ becomes the easy observable and $M_z$ the hard one.
+Once those two pieces are removed, Lie and Suzuki apply exactly the same operators as far as $M_z$ and $\langle Z_0Z_r\rangle$ are concerned. So for Z observables Lie-Trotter is effectively second order, and the fitted slope is 2 rather than 1. For $M_x$ the final half-step $ZZ(\Delta t/2)$ does matter, since it is the piece that cancels the leading error term. Without it Lie stays first order (slope 1) and needs a 12× smaller step (0.0152 vs 0.182). Putting the field terms first ("Strang") moves the half-steps onto the X layers and swaps the roles: $M_x$ becomes the easy observable and $M_z$ the hard one.
 
-**Cost.** Qiskit's `SuzukiTrotter` emits two ZZ half-layers per step, so it costs 2× the CX gates of Lie per step (column "CX/step"). Neighbouring half-steps of consecutive Suzuki steps merge, though. Our `tfim_trotter_circuit` merges them and drops the trivial first layer, so a 2nd-order run costs the **same CX count as a 1st-order run** (column "CX (merged)"). The cheapest correct choice:
+On cost: Qiskit's `SuzukiTrotter` writes two ZZ half-layers per step, so per step it uses twice the CX gates of Lie (column "CX/step"). However, the half-steps of neighbouring Suzuki steps can be merged. Our `tfim_trotter_circuit` merges them and drops the trivial first layer, so a second-order run ends up with the same CX count as a first-order one (column "CX (merged)"). The cheapest choices that meet the 0.01 target are:
 
-* Z-only observables: Lie-Trotter (identical to Suzuki here, with fewer gates).
-* $M_x$: merged Suzuki-Trotter with $\Delta t = 2/11$ needs 154 CX, against 1834 for (merged) Lie at $\Delta t = 2/132$, about 12× fewer. In Qiskit's own builds it is 308 vs 1848, 6× fewer.
+* Z-only observables: Lie-Trotter, which here is identical to Suzuki and uses fewer gates.
+* $M_x$: merged Suzuki-Trotter with $\Delta t = 2/11$. It needs 154 CX, compared with 1834 for merged Lie at $\Delta t = 2/132$, so about 12× fewer. With Qiskit's own circuits it is 308 vs 1848, or 6× fewer.
 * Both observables at once: merged Suzuki-Trotter with $\Delta t = 2/12$ (168 CX).
 """))
 

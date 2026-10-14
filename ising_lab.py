@@ -183,7 +183,7 @@ def tfim_trotter_circuit(n: int, dt: float, steps: int, scheme: str = "suzuki",
 def strang_tfim_circuit(n: int, dt: float, steps: int, J: float = 1.0, h: float = 1.0,
                         measure_basis: str | None = None) -> QuantumCircuit:
     """Second-order (Strang) Trotter circuit with the X half-steps on the outside
-    and merged between steps. Each step costs ONE brickwork layer of RZZ gates,
+    and merged between steps. Each step costs one brickwork layer of RZZ gates,
     i.e. exactly the two-qubit cost of first-order Lie-Trotter.
 
     exp(-iH dt) ~ e^{-i H_X dt/2} e^{-i H_ZZ dt} e^{-i H_X dt/2}
@@ -241,7 +241,7 @@ def kicked_ising_circuit(n: int, steps: int, theta_h, theta_j: float = THETA_J,
 
 def kicked_ising_lightcone_z(n: int, steps: int, theta_h: float, theta_j: float = THETA_J,
                              sites=None) -> np.ndarray:
-    """EXACT <Z_i> after ``steps`` Floquet steps for ANY chain length ``n``.
+    """Exact <Z_i> after ``steps`` Floquet steps for any chain length ``n``.
 
     Light-cone argument: in the Heisenberg picture one Floquet step grows the
     support of an operator by at most one site on each side, so <Z_i>(t)
@@ -267,8 +267,8 @@ def kicked_ising_lightcone_z(n: int, steps: int, theta_h: float, theta_j: float 
 
 def kicked_ising_exact_profile(n: int, steps: int, thetas, theta_j: float = THETA_J,
                                precision: str = "double"):
-    """EXACT site-resolved <Z_i> and bond-resolved <Z_i Z_{i+1}> of an n-site
-    kicked-Ising chain for every theta_h in ``thetas``, from ONE statevector
+    """Exact site-resolved <Z_i> and bond-resolved <Z_i Z_{i+1}> of an n-site
+    kicked-Ising chain for every theta_h in ``thetas``, from one statevector
     simulation of a (2t+2)-qubit edge window per theta, for any n.
 
     The backward light cone of Z_k after t steps is [k-t, k+t]. In the
@@ -306,7 +306,7 @@ def kicked_ising_exact_profile(n: int, steps: int, thetas, theta_j: float = THET
 
 
 def kicked_ising_lightcone_zz(n: int, steps: int, theta_h: float, theta_j: float = THETA_J) -> np.ndarray:
-    """EXACT nearest-neighbour <Z_i Z_{i+1}> via the same light-cone window [i-t, i+1+t]."""
+    """Exact nearest-neighbour <Z_i Z_{i+1}> via the same light-cone window [i-t, i+1+t]."""
     cache: dict[tuple, float] = {}
     out = []
     for i in range(n - 1):
@@ -323,7 +323,7 @@ def kicked_ising_lightcone_zz(n: int, steps: int, theta_h: float, theta_j: float
 
 
 # ----------------------------------------------------------------------------
-# Free-fermion (Jordan-Wigner) exact solution for <Z_i Z_{i+1}> at ANY depth.
+# Free-fermion (Jordan-Wigner) exact solution for <Z_i Z_{i+1}> at any depth.
 # The 1D kicked transverse-field Ising chain is integrable. With JW strings in
 # the X basis:  X_j = -i g_{2j} g_{2j+1},  Z_j Z_{j+1} = -i g_{2j+1} g_{2j+2}.
 # Every gate is a Gaussian unitary (a rotation of the Majorana vector), so the
@@ -395,7 +395,7 @@ def pfaffian(A: np.ndarray) -> float:
 
 
 def leading_pfaffians(B: np.ndarray, tol: float = 1e-9) -> np.ndarray:
-    """Pf(B[:2m, :2m]) for m = 1..n/2 from ONE skew-symmetric elimination.
+    """Pf(B[:2m, :2m]) for m = 1..n/2 from one skew-symmetric elimination.
 
     The first m elimination steps only touch the leading 2m x 2m block, so the
     running product of pivots is the leading sub-Pfaffian. No pivoting is
@@ -433,9 +433,9 @@ def _givens_layer(M: np.ndarray, planes, phi: float) -> np.ndarray:
 
 def free_fermion_profile(n: int, steps: int, theta_h: float, theta_j: float = THETA_J,
                          zz_pairs=None):
-    """EXACT <Z_i> for every site and <Z_i Z_j> for requested pairs, any n, any depth.
+    """Exact <Z_i> for every site and <Z_i Z_j> for requested pairs, any n, any depth.
 
-    Z_i is parity-odd (a Jordan-Wigner string), so we add one GHOST spin g at
+    Z_i is parity-odd (a Jordan-Wigner string), so we add one "ghost" spin g at
     the left end that never evolves: <Z_g Z_i> = <Z_i> because g stays in |0>.
     Z_g Z_i = prod of nearest-neighbour bonds = an even Majorana product, whose
     Gaussian expectation is a Pfaffian of the covariance submatrix (Wick). The
@@ -803,7 +803,7 @@ class CompactSim:
         from qiskit_aer import AerSimulator
         self.path = list(path)
         self.noise_model = compact_noise_model(backend, self.path)
-        # NB: no shot branching. In Aer 0.17.2, statevector + shot_branching silently drops
+        # Note: no shot branching. In Aer 0.17.2, statevector + shot_branching silently drops
         # readout errors (we caught this: P(0|1) 0.0004 measured vs 0.0108 in the model).
         self.sim = AerSimulator(noise_model=self.noise_model, method=method, max_parallel_threads=threads)
 
@@ -816,7 +816,7 @@ class CompactSim:
 def noisy_bulk_z(backend, line: list[int], steps: int, thetas, center: int | None = None,
                  trajectories: int = 400, seed: int = 1, threads: int = 0, readout: bool = True,
                  factor: int = 1):
-    """Noise-model prediction of a BULK <Z_c> of the kicked-Ising chain on ``line``.
+    """Noise-model prediction of a bulk <Z_c> of the kicked-Ising chain on ``line``.
 
     Pauli noise outside the backward light cone [c-t, c+t] of Z_c cannot change
     <Z_c>, so we simulate only that (2t+1)-qubit window, transpiled onto the

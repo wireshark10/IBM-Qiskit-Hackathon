@@ -5,17 +5,17 @@ CELLS = []
 C = CELLS.append
 
 C(md(r"""
-## 2 · 🟠 Intermediate: recovering the physics that noise hides (12 spins)
+## 2. Intermediate: getting the physics back from noisy data (12 spins)
 
-Same model, now with $N=12$ spins, $J=h=1$, $0\le t\le 2$, and realistic noise. The plan follows what a hardware run actually needs:
+Same model, now with $N=12$ spins, $J=h=1$, $0\le t\le 2$, and realistic noise. We worked in the order a hardware run needs:
 
-1. **Cut the circuit first** (§2.1). Every CZ we remove is error we never have to mitigate.
-2. **Model the noise** from FakeFez (IBM Heron r2, 156 qubits) calibration data (§2.2).
-3. **Mitigate**, one rung at a time, with code we wrote ourselves (§2.3): readout twirling (TREX), Pauli twirling, and zero-noise extrapolation (ZNE) by CZ folding.
-4. **Choose the Trotter step under noise** (§2.4). A finer step lowers Trotter error but adds CZ errors, so refining stops paying off.
-5. **Prepare the same circuit for a real IBM QPU** (§2.5): the job is built and validated; we had no QPU access before the deadline.
+1. Make the circuit shorter first (2.1). Every CZ we remove is error we don't have to mitigate later.
+2. Build a noise model from FakeFez calibration data, which is IBM Heron r2 with 156 qubits (2.2).
+3. Mitigate step by step with our own code (2.3): readout twirling (TREX), Pauli twirling, and zero-noise extrapolation (ZNE) by folding CZ gates.
+4. Pick the Trotter step with the noise in mind (2.4). A finer step lowers the Trotter error but adds CZ errors, so at some point refining stops helping.
+5. Prepare the same circuits for a real IBM QPU (2.5). The job is built and validated, but we did not get QPU access before the deadline.
 
-We use merged 2nd-order Suzuki-Trotter with $\Delta t = 0.25$ (8 steps to $t=2$). For 12 spins its Trotter error is 0.024 in $M_z$ and 0.018 in $M_x$. §2.4 shows that on noisy hardware the finer $\Delta t \approx 0.15$ that the 0.01 tolerance would need buys nothing: the error is noise-limited for $\Delta t \lesssim 0.4$.
+We use merged second-order Suzuki-Trotter with $\Delta t = 0.25$ (8 steps to $t=2$). For 12 spins its Trotter error is 0.024 in $M_z$ and 0.018 in $M_x$. Section 2.4 shows that on noisy hardware the finer $\Delta t \approx 0.15$ needed for the 0.01 tolerance doesn't help, because for $\Delta t \lesssim 0.4$ the error is limited by noise.
 """))
 
 C(code(r"""
@@ -39,14 +39,14 @@ print("Trotter error of the noiseless circuit:  Mz %.4f   Mx %.4f" %
 """))
 
 C(md(r"""
-### 2.1 Cutting depth before mitigating: circuit structure and layout
+### 2.1 Shorter circuits before any mitigation
 
-Four ways to compile the same $t=2$ evolution for FakeFez. We score each by **CZ count**, **two-qubit depth**, **SWAPs added by routing**, and the **estimated success probability** $\text{ESP}=\prod_{\text{gates}}(1-\epsilon_g)\prod_{\text{measured qubits}}(1-\epsilon_{\text{ro}})$, computed from FakeFez's calibration. ESP is the standard first-order figure of merit for comparing compiled circuits.
+We compiled the same $t=2$ evolution for FakeFez in four ways and compared the CZ count, the two-qubit depth, the SWAPs added by routing, and the estimated success probability $\text{ESP}=\prod_{\text{gates}}(1-\epsilon_g)\prod_{\text{measured qubits}}(1-\epsilon_{\text{ro}})$ from FakeFez's calibration. ESP is a simple first-order way to compare compiled circuits.
 
-* **(a) Qiskit `SuzukiTrotter`, default layout.** `PauliEvolutionGate`, transpiled at optimisation level 2.
-* **(b) Our merged brickwork circuit, default layout.** Half-steps merged, trivial first layer dropped. Even bonds, then odd bonds, so the two-qubit depth per step is 2·2 = 4 CZ layers whatever N is.
-* **(c) Our circuit on an error-aware line.** `il.best_line` runs a beam search over the heavy-hex coupling map for the 12-qubit path with the lowest summed CZ, readout and SX infidelity.
-* **(d) Our circuit on a careless layout.** 12 scattered qubits, so the router has to insert SWAPs.
+* (a) Qiskit's `SuzukiTrotter` through `PauliEvolutionGate`, default layout, optimisation level 2.
+* (b) Our merged brickwork circuit with the default layout: half-steps merged, trivial first layer dropped, even bonds then odd bonds. The two-qubit depth per step is 2·2 = 4 CZ layers for any N.
+* (c) The same circuit on an error-aware line. `il.best_line` runs a beam search over the heavy-hex coupling map for the 12-qubit path with the lowest total CZ, readout and SX infidelity.
+* (d) The same circuit on 12 scattered qubits, so the router has to add SWAPs.
 """))
 
 C(code(r"""
@@ -96,15 +96,15 @@ print("\nerror-aware line on FakeFez:", line12)
 """))
 
 C(md(r"""
-**What the table says.** Merging and brickwork ordering (a → b) cut the CZ count by 45% (322 → 176) and the two-qubit depth 10× (322 → 32): Qiskit's default synthesis applies the ZZ terms one after another, while the brickwork applies all even bonds, then all odd bonds, in parallel. The scattered layout (d) shows what routing costs: the router's SWAPs (3 CZ each, counted as extra CZs because the transpiler decomposes them) multiply the gate count and ESP collapses. The VF2 layout pass in Qiskit's default compilation already finds a perfect line for a 12-qubit chain, so (b) and (c) are close here. Our line search optimises the same −log ESP directly (weights = 16 CZ per bond, ~30 SX per qubit). For the 100-qubit chain in §3 a default layout is no longer reliable, which is why we search for the line ourselves using calibration data.
+From (a) to (b), merging and the brickwork ordering cut the CZ count by 45% (322 → 176) and the two-qubit depth by 10× (322 → 32). Qiskit's default synthesis applies the ZZ terms one after another, while the brickwork applies all even bonds and then all odd bonds in parallel. Row (d) shows what routing costs. The transpiler turns each SWAP into 3 CZs, which is why they appear as extra CZs, and with that many gates the ESP drops to almost zero. For a 12-qubit chain the VF2 layout pass in Qiskit's default compilation already finds a perfect line, so (b) and (c) come out the same here. Our line search minimises the same −log ESP directly (weights of 16 CZ per bond and about 30 SX per qubit). For the 100-qubit chain in Section 3 we can't rely on the default layout, so there we search for the line ourselves using calibration data.
 
-### 2.2 The noise model, and a check that it is faithful
+### 2.2 Noise model, and a check against the full FakeFez model
 
-Simulating the full 156-qubit FakeFez noise model costs ~40 s per circuit, which is too slow for hundreds of mitigation circuits. So we build a **compact noise model** (`il.compact_noise_model`) for just the 12 chosen qubits, from FakeFez's calibration data:
-* depolarising CZ, SX and X errors whose strength matches each gate's reported average error ($\lambda = r\,d/(d-1)$);
-* each qubit's own **asymmetric** readout error.
+The full 156-qubit FakeFez noise model took about 40 s per circuit, far too slow for the hundreds of circuits that mitigation needs. So we built a smaller noise model (`il.compact_noise_model`) for just the 12 qubits we use, from FakeFez's calibration data:
+* depolarising CZ, SX and X errors, with strengths matched to each gate's reported average error ($\lambda = r\,d/(d-1)$);
+* each qubit's own asymmetric readout error.
 
-Pauli twirling turns hardware noise into this kind of Pauli channel anyway. Below we compare it with the complete `AerSimulator.from_backend(FakeFez())` model, which adds thermal relaxation, on the raw $M_z$ at three depths.
+Pauli twirling turns hardware noise into this kind of Pauli channel anyway. Below we compare our model with the complete `AerSimulator.from_backend(FakeFez())` model, which also includes thermal relaxation, using the raw $M_z$ at three depths.
 """))
 
 C(code(r"""
@@ -122,18 +122,18 @@ for r in model_check:
 """))
 
 C(md(r"""
-### 2.3 Error mitigation, one rung at a time
+### 2.3 Error mitigation, one step at a time
 
-Each rung is implemented in `ising_lab.py`:
+All of these are implemented in `ising_lab.py`:
 
-| Rung | What it does | Why it works |
+| Step | What it does | Why it works |
 |---|---|---|
-| raw | measure, average $\langle Z_i\rangle$ or $\langle X_i\rangle$ (X basis via $H=R_Z S_X R_Z$) | — |
-| **TREX** | random X before each readout, undone classically (K = 8 masks); divide by the same twirled readout of $\lvert0\cdots0\rangle$ | twirling makes readout noise a pure scale factor $f_i$, which the calibration measures |
-| **Pauli twirling** | random Paulis around every CZ, cancelled after it | turns coherent CZ errors into stochastic Pauli noise that ZNE can extrapolate |
-| **ZNE** | fold every CZ into CZ·CZ·CZ (λ=3) or 5 CZs (λ=5); extrapolate λ→0 (linear, exponential, Richardson) | for Pauli noise, ⟨O⟩(λ) decays smoothly with λ |
+| raw | measure and average $\langle Z_i\rangle$ or $\langle X_i\rangle$ (X basis via $H=R_Z S_X R_Z$) | — |
+| TREX | random X before each readout, undone in post-processing (K = 8 masks), then divide by the same twirled readout of $\lvert0\cdots0\rangle$ | after twirling, readout noise is just a scale factor $f_i$, which the calibration measures |
+| Pauli twirling | random Paulis around every CZ, undone right after it | turns coherent CZ errors into random Pauli noise that ZNE can extrapolate |
+| ZNE | fold every CZ into CZ·CZ·CZ (λ=3) or 5 CZs (λ=5), then extrapolate to λ→0 (linear, exponential, Richardson) | for Pauli noise, ⟨O⟩(λ) decays smoothly with λ |
 
-One honest observation. In a Pauli noise model, twirling the CZ gates changes nothing on average, because the channel is already Pauli-symmetric. We verify that once below. Twirling earns its keep on real hardware, where coherent errors (ZZ crosstalk, miscalibrated phases) are present. There we let IBM's Estimator twirl, together with dynamical decoupling, which suppresses errors on idle qubits.
+Something we noticed: in a Pauli noise model, twirling the CZ gates changes nothing on average, because the noise is already a Pauli channel. We check this once below. Twirling matters on real hardware, where there are coherent errors such as ZZ crosstalk and phase miscalibration. For hardware runs we leave twirling to IBM's Estimator, together with dynamical decoupling for idle qubits.
 """))
 
 C(code(r"""
@@ -166,20 +166,20 @@ print("Pauli-twirling check at t=2 (Pauli noise):  TREX only %.4f   TREX + twirl
 """))
 
 C(md(r"""
-**Reading the ladder.**
-* **TREX on its own can look slightly *worse* than raw.** FakeFez readout is asymmetric, with $P(0|1) > P(1|0)$, so raw readout adds a positive bias $b=P(0|1)-P(1|0)$ to every $\langle Z\rangle$. Here that bias happens to offset part of the gate-noise damping. TREX removes the bias, as it should, and leaves the pure gate-noise attenuation, which ZNE then removes.
-* **The order matters.** A readout bias does not scale with the folding factor λ, so ZNE on biased data extrapolates to the wrong point. TREX first, ZNE second, is the correct order.
-* **Result.** With TREX + ZNE (exponential or Richardson), the $M_x$ error relative to the *noiseless circuit* drops from 0.040 to ≈0.013, about 3×. The remaining 0.013 is residual noise plus shot noise: σ ≈ 0.01–0.015 after extrapolation with 2000/1000 shots. Against the *exact* dynamics the mitigated error is 0.018–0.019, because the Trotter error of the circuit itself (≤ 0.018 for $M_x$) adds on top. Mitigation cannot remove Trotter error by design: it can only recover the noiseless circuit.
+What we see in the table and the plot:
+* TREX on its own can come out slightly worse than raw. FakeFez readout is asymmetric, $P(0|1) > P(1|0)$, so raw readout adds a positive bias $b=P(0|1)-P(1|0)$ to every $\langle Z\rangle$, and here that bias happens to cancel part of the damping from gate noise. TREX removes the bias, as it should, which leaves only the gate-noise damping for ZNE to undo.
+* The order matters. A readout bias doesn't grow with the folding factor λ, so ZNE on biased data extrapolates to the wrong value. TREX has to come before ZNE.
+* With TREX + ZNE (exponential or Richardson), the $M_x$ error relative to the noiseless circuit goes from 0.040 to about 0.013, roughly 3× smaller. What is left is residual noise plus shot noise (σ ≈ 0.01–0.015 after extrapolation with 2000/1000 shots). Compared with the exact dynamics the mitigated error is 0.018–0.019, because the circuit's own Trotter error (≤ 0.018 for $M_x$) adds on top. Mitigation can only take us back to the noiseless circuit; it cannot remove Trotter error.
 """))
 
 C(md(r"""
-### 2.4 Choosing the Trotter step when the hardware is noisy
+### 2.4 Choosing the Trotter step on a noisy device
 
-The Beginner analysis asked for the step that keeps *Trotter* error below 0.01. On a noisy device that is the wrong target. The total error is roughly
+In the Beginner part we picked the step that keeps the Trotter error below 0.01. On a noisy device that isn't really the right goal. Roughly, the total error is
 
 $$\varepsilon_{\text{total}}(\Delta t) \approx \underbrace{c\,\Delta t^2}_{\text{Trotter}} + \underbrace{1-e^{-\gamma\,n_{CZ}(\Delta t)}}_{\text{noise},\ n_{CZ}\propto 1/\Delta t},$$
 
-so refining the step stops paying off once the noise term dominates. Below we sweep $\Delta t = 2/n$ at the final time $t=2$: noiseless Trotter error, raw noisy error, and ZNE-mitigated error.
+so making the step smaller stops helping once the noise term dominates. Below we sweep $\Delta t = 2/n$ at the final time $t=2$ and show the noiseless Trotter error, the raw noisy error and the error after ZNE.
 """))
 
 C(code(r"""
@@ -209,15 +209,15 @@ plt.tight_layout(); savefig("i2_tradeoff"); plt.show()
 """))
 
 C(md(r"""
-The $M_x$ panel is the informative one.
-* **Raw (unmitigated) error: a noise-limited plateau.** For $0.25 \le \Delta t \le 0.4$ the raw error is flat at 0.065–0.07, even though the Trotter error underneath it falls 4×. Going finer makes it *worse*: 0.087 at $\Delta t=0.2$ and 0.105 at $\Delta t=0.167$, because each extra CZ layer adds more noise than it removes Trotter error.
-* **After TREX + ZNE**, every $\Delta t \le 0.4$ lands at 0.002–0.036. These differences are within this sweep's shot noise (σ ≈ 0.02 with 1000/500 shots), so they do **not** single out one optimal step.
-* **Conclusion.** Any $\Delta t$ on the plateau 0.25–0.4 is as good as the finer steps, at 38–62% fewer CZs (110–176 vs 286) than the $\Delta t = 2/13 \approx 0.15$ that the Trotter-only criterion requires for 12 spins. We keep $\Delta t = 0.25$ (176 CZ): it sits on the plateau and keeps the Trotter error below 0.025. $\Delta t = 1/3$ (132 CZ) would have been a defensible cheaper choice.
-* The $M_z(2)$ signal is only about 0.05, so that panel is dominated by shot noise and we draw no conclusions from it.
+The $M_x$ panel is the one to look at.
+* Raw error: for $0.25 \le \Delta t \le 0.4$ it stays at 0.065–0.07, even though the Trotter error underneath drops by 4×. Finer steps make it worse (0.087 at $\Delta t=0.2$ and 0.105 at $\Delta t=0.167$), because each extra CZ layer adds more noise than it removes Trotter error.
+* After TREX + ZNE, every $\Delta t \le 0.4$ ends up between 0.002 and 0.036. These differences are within the shot noise of this sweep (σ ≈ 0.02 with 1000/500 shots), so they don't single out one best step.
+* So any $\Delta t$ between 0.25 and 0.4 does as well as the finer steps, with 38–62% fewer CZs (110–176 vs 286) than the $\Delta t = 2/13 \approx 0.15$ that the Trotter-only criterion needs for 12 spins. We kept $\Delta t = 0.25$ (176 CZ) because it is in that range and keeps the Trotter error below 0.025. Looking back, $\Delta t = 1/3$ (132 CZ) would also have been a reasonable and cheaper choice.
+* $M_z(2)$ is only about 0.05, so that panel is dominated by shot noise and we don't draw conclusions from it.
 
-### 2.5 The same 12-spin circuit on a real IBM QPU (prepared, not run)
+### 2.5 The same 12-spin circuits on a real IBM QPU (prepared, not run)
 
-Job B in `hardware/run_hardware.py` submits these eight circuits through IBM's `EstimatorV2`, with TREX, Pauli-twirled CZs, XpXm dynamical decoupling and gate-folding ZNE ($\lambda = 1, 3, 5$). When results exist, the cell below plots the device result at $\lambda=1$ (twirled, readout-mitigated, before extrapolation) and after ZNE, against our noisy simulation and the exact curve. We did not obtain QPU access before the deadline.
+Job B in `hardware/run_hardware.py` sends these eight circuits to IBM's `EstimatorV2` with TREX, Pauli-twirled CZs, XpXm dynamical decoupling and gate-folding ZNE ($\lambda = 1, 3, 5$). When results exist, the next cell plots the device values at $\lambda=1$ (twirled and readout-mitigated, before extrapolation) and after ZNE, next to our noisy simulation and the exact curve. We did not get QPU access before the deadline, so for now the cell only prints a message.
 """))
 
 C(code(r"""
