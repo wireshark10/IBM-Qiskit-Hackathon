@@ -3,6 +3,7 @@
 Usage (from the repo root):
     python hardware/run_hardware.py dry-run      # build every PUB against FakeFez, no QPU
     python hardware/run_hardware.py submit       # pick a QPU, submit 3 jobs, save job IDs
+    python hardware/run_hardware.py submit --quick   # minimal Advanced run (~1-2 QPU min) if time is short
     python hardware/run_hardware.py status
     python hardware/run_hardware.py fetch        # download results to results/hardware_*.npz
 
@@ -180,6 +181,17 @@ def dry_run():
           all(m.get("swaps") in (0, None) for m in ma + mb + mc))
 
 
+QUICK = "--quick" in sys.argv
+if QUICK:
+    # minimal Advanced experiment, ~1-2 QPU minutes: real 100-qubit data at shallow, medium and deep
+    # circuits, a high-signal angle (0), a non-trivial angle (pi/4) and two Clifford checks
+    T_KI = [2, 4, 6, 10, 20]
+    THETAS = [0.0, np.pi / 8, np.pi / 4]
+    T_CLIFF = [4, 8]
+    STEPS_TF = [2, 4, 8]
+    SAMPLER_THETAS = [np.pi / 4]
+
+
 def submit():
     from qiskit_ibm_runtime import QiskitRuntimeService, EstimatorV2, SamplerV2
     service = QiskitRuntimeService()
@@ -196,7 +208,7 @@ def submit():
     print("backend:", backend.name, "| pending jobs:", backend.status().pending_jobs)
     for n_ki in (N_KI, 90, 80, 64):                              # fall back if no 100-qubit line exists
         try:
-            (pa, ma), (pb, mb), (pc, mc), lay = build_all(backend, n_ki=n_ki)
+            (pa, ma), (pb, mb), (pc, mc), lay = build_all(backend, n_ki=n_ki, t_ki=T_KI, t_cliff=T_CLIFF)
             break
         except RuntimeError as err:
             print(err)

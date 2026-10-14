@@ -229,8 +229,9 @@ def hw_noise_factor_slice(d, i, which=0):
 
 if hwB_path.exists():
     dB = dict(np.load(hwB_path))
+    mB = jobs_meta["meta"]["B"]; kB = np.array([m["steps"] for m in mB]); tB = t12[kB]   # steps actually run
     hz, hx, hz1, hx1 = [], [], [], []
-    for i in range(len(STEPS12)):
+    for i in range(len(mB)):
         ev = dB[f"p{i}_evs"]; hz.append(ev[:N12].mean()); hx.append(ev[N12:].mean())
         nf = hw_noise_factor_slice(dB, i)
         if nf is not None:
@@ -242,13 +243,13 @@ if hwB_path.exists():
         ax.plot(t12[1:], sraw.mean(1), "o--", color=COL["raw"], ms=4, label="FakeFez sim, raw")
         ax.plot(t12[1:], szne.mean(1), "D--", color="#ff9896", ms=4, label="FakeFez sim, TREX+ZNE")
         if hw1:
-            ax.plot(t12[1:], hw1, "s-", color="#1f77b4", ms=5, label=f"{jobs_meta['backend']}: λ=1 (TREX+twirl+DD)")
-        ax.plot(t12[1:], hwz, "D-", color=COL["hw"], ms=5, label=f"{jobs_meta['backend']}: + ZNE")
+            ax.plot(tB, hw1, "s-", color="#1f77b4", ms=5, label=f"{jobs_meta['backend']}: λ=1 (TREX+twirl+DD)")
+        ax.plot(tB, hwz, "D-", color=COL["hw"], ms=5, label=f"{jobs_meta['backend']}: + ZNE")
         ax.set_xlabel("t"); ax.set_ylabel(f"${name}$"); ax.set_title(f"12 spins on real hardware: ${name}$")
     axes[0].legend(fontsize=7.5)
     plt.tight_layout(); savefig("i3_hardware_tfim"); plt.show()
-    print("mean |QPU+ZNE - exact|:  Mz %.4f   Mx %.4f" % (np.abs(np.array(hz) - mz12_exact[1:]).mean(),
-                                                         np.abs(np.array(hx) - mx12_exact[1:]).mean()))
+    print("mean |QPU+ZNE - exact|:  Mz %.4f   Mx %.4f" % (np.abs(np.array(hz) - mz12_exact[kB]).mean(),
+                                                         np.abs(np.array(hx) - mx12_exact[kB]).mean()))
 else:
     print("results/hardware_B.npz not found: run hardware/run_hardware.py submit / fetch to add the QPU curve.")
 """))

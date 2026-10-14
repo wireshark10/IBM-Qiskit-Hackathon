@@ -33,8 +33,9 @@ One caveat we state openly: integrability is what lets us certify 100 qubits at 
 C(code(r"""
 _jm = json.load(open(RESULTS / "hardware_jobs.json")) if (RESULTS / "hardware_jobs.json").exists() else None
 N_KI = _jm["plan"]["N_KI"] if _jm else 100          # chain length actually run on the QPU
-TH = {"0": 0.0, "π/8": np.pi / 8, "π/4": np.pi / 4, "3π/8": 3 * np.pi / 8}
-T_KI = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20]
+TH_ALL = {"0": 0.0, "π/8": np.pi / 8, "π/4": np.pi / 4, "3π/8": 3 * np.pi / 8}
+T_KI = _jm["plan"]["T_KI"] if _jm else [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20]
+TH = {k: v for k, v in TH_ALL.items() if (not _jm) or any(abs(v - x) < 1e-9 for x in _jm["plan"]["THETAS"])}
 
 # (1) all three exact methods vs full statevector on a 12-qubit chain
 n_small, worst = 12, 0.0
@@ -162,7 +163,7 @@ if "windows" in emu:
     e = emu["windows"]; nt = min(len(e["trex"][str(f)]) for f in F); t = np.array(e["t"][:nt]); labs = ["π/8", "π/4", "3π/8"]
     raw = np.array(e["raw"][:nt]); st = np.array([e["trex"][str(f)][:nt] for f in F])   # (F, t, theta)
     for a, (ax, lab) in enumerate(zip(axes[1], labs)):
-        ex = np.array([il.free_fermion_profile(N_KI, int(tt), TH[lab])[0][N_KI // 2] for tt in t])
+        ex = np.array([il.free_fermion_profile(N_KI, int(tt), TH_ALL[lab])[0][N_KI // 2] for tt in t])
         ax.plot(t, ex, "-", color=COL["exact"], lw=2, label="exact")
         ax.plot(t, raw[:, a], "o:", color=COL["raw"], label="noisy, raw")
         ax.plot(t, st[0, :, a], "s--", color=COL["trex"], label="+ TREX")
@@ -276,7 +277,7 @@ for ax, lab in zip(axes.flat, TH):
     tf = np.arange(1, 21)
     ex_fine = [il.free_fermion_profile(N_KI, t, TH[lab])[0].mean() for t in tf] if lab != "0" else np.ones_like(tf, float)
     ax.plot(tf, ex_fine, "-", color=COL["exact"], lw=2, label="exact (free fermions)")
-    if raw and (lab, 1) in raw:
+    if raw and (lab, T_KI[0]) in raw:
         ax.plot(tt, [raw[(lab, t)]["z"].mean() for t in tt], "o:", color=COL["raw"], ms=4, label="raw QPU (no mitigation)")
     if HAVE_HW:
         if "nf_z" in hw[lab]:
@@ -305,7 +306,7 @@ if HAVE_HW:
     axes[0].set_xlabel("Floquet steps t"); axes[0].set_ylabel(r"$\overline{\langle Z_iZ_{i+1}\rangle}$")
     axes[0].set_title("nearest-neighbour correlator: lines exact, ◆ ZNE, × λ=1"); axes[0].legend(fontsize=8)
     # site-resolved profile at one depth: does the device resolve the boundary physics?
-    t_show = 6; k = T_KI.index(t_show)
+    t_show = 6 if 6 in T_KI else T_KI[len(T_KI) // 2]; k = T_KI.index(t_show)
     axes[1].plot(range(N_KI), exact_ki[("π/4", t_show)]["z"], "-", color=COL["exact"], lw=2, label="exact")
     axes[1].plot(range(N_KI), hw["π/4"]["zne_z"][k], ".", color=COL["hw"], label="QPU + ZNE")
     if raw:
@@ -327,19 +328,20 @@ if emu_path.exists():
     labs = ["π/8", "π/4", "3π/8"]
     fig, axes = plt.subplots(1, 3, figsize=(13, 3.7))
     for ax, lab in zip(axes, labs):
-        a = list(TH).index(lab)
-        ex = [exact_ki[(lab, t)]["z"][N_KI // 2] for t in te]
+        a = list(TH_ALL).index(lab)
+        ex = [il.free_fermion_profile(N_KI, t, TH_ALL[lab])[0][N_KI // 2] for t in te]
         ax.plot(te, ex, "-", color=COL["exact"], lw=2, label="exact")
         ax.plot(te, [r[a] for r in emu["gates_only"]], "--", color="#1f77b4", label="noise model: gate errors")
         ax.plot(te, [r[a] for r in emu["with_readout"]], ":", color="grey", label="noise model: gates + readout")
-        if HAVE_HW:
-            ks = [T_KI.index(t) for t in te]
+        if HAVE_HW and lab in hw:
+            te_hw = [t for t in te if t in T_KI]
+            ks = [T_KI.index(t) for t in te_hw]
             bulk = lambda t: slice(t + 1, N_KI - 1 - t)
             if "nf_z" in hw[lab]:
-                ax.plot(te, [hw[lab]["nf_z"][k, bulk(t), 0].mean() for k, t in zip(ks, te)], "s", color="#1f77b4", label="QPU λ=1 (twirl+TREX+DD)")
-            ax.plot(te, [hw[lab]["zne_z"][k, bulk(t)].mean() for k, t in zip(ks, te)], "D", color=COL["hw"], label="QPU + ZNE")
-            if raw and (lab, te[0]) in raw:
-                ax.plot(te, [raw[(lab, t)]["z"][bulk(t)].mean() for t in te], "o", color=COL["raw"], label="QPU raw")
+                ax.plot(te_hw, [hw[lab]["nf_z"][k, bulk(t), 0].mean() for k, t in zip(ks, te_hw)], "s", color="#1f77b4", label="QPU λ=1 (twirl+TREX+DD)")
+            ax.plot(te_hw, [hw[lab]["zne_z"][k, bulk(t)].mean() for k, t in zip(ks, te_hw)], "D", color=COL["hw"], label="QPU + ZNE")
+            if raw and all((lab, t) in raw for t in te_hw):
+                ax.plot(te_hw, [raw[(lab, t)]["z"][bulk(t)].mean() for t in te_hw], "o", color=COL["raw"], label="QPU raw")
         ax.set_title(f"bulk ⟨Z⟩, θ_h = {lab}"); ax.set_xlabel("Floquet steps t")
     axes[0].set_ylabel(r"bulk $\langle Z_i\rangle$"); axes[0].legend(fontsize=7)
     plt.suptitle(f"noise model built from {emu['backend']} calibration vs the device", y=1.02)
@@ -384,7 +386,8 @@ The Sampler shots give the full 100-bit snapshot of every run. From them we read
 C(code(r"""
 if raw:
     fig, ax = plt.subplots(figsize=(6.8, 3.8))
-    for lab, t, c in (("π/4", 3, "#1f77b4"), ("π/4", 8, "#2ca02c"), ("3π/8", 3, "#d62728")):
+    for lab, t, c in [(l, t, c) for (l, t, c) in (("π/4", 3, "#1f77b4"), ("π/4", 8, "#2ca02c"), ("3π/8", 3, "#d62728"),
+                                                     ("π/4", 2, "#1f77b4"), ("π/4", 6, "#2ca02c"), ("π/4", 20, "#d62728"))]:
         if (lab, t) not in raw:
             continue
         s = raw[(lab, t)]["spins"].astype(float)
