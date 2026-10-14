@@ -1,0 +1,8 @@
+{
+ "thresholds_rows": "<tr><td>lie</td><td>Mz</td><td>0.1667 (12 steps)</td><td>168</td><td>154</td></tr><tr><td>lie</td><td>Mx</td><td>0.0152 (132 steps)</td><td>1848</td><td>1834</td></tr><tr><td>suzuki</td><td>Mz</td><td>0.1667 (12 steps)</td><td>336</td><td>168</td></tr><tr><td>suzuki</td><td>Mx</td><td>0.1818 (11 steps)</td><td>308</td><td>154</td></tr><tr><td>strang</td><td>Mz</td><td>0.1176 (17 steps)</td><td>442</td><td>238</td></tr><tr><td>strang</td><td>Mx</td><td>0.2222 (9 steps)</td><td>234</td><td>126</td></tr>",
+ "compile_rows": "<tr><td>(a) Qiskit SuzukiTrotter, default layout</td><td>322</td><td>322</td><td>0</td><td>0.298</td></tr><tr><td>(b) merged brickwork, default layout</td><td>176</td><td>32</td><td>0</td><td>0.499</td></tr><tr><td>(c) merged brickwork, error-aware line</td><td>176</td><td>32</td><td>0</td><td>0.499</td></tr><tr><td>(d) merged brickwork, scattered qubits</td><td>747</td><td>184</td><td>190</td><td>0.000</td></tr>",
+ "ladder_rows": "<tr><td>raw</td><td>0.027</td><td>0.045</td></tr><tr><td>TREX</td><td>0.031</td><td>0.051</td></tr><tr><td>TREX + ZNE (linear)</td><td>0.021</td><td>0.026</td></tr><tr><td>TREX + ZNE (exp)</td><td>0.019</td><td>0.019</td></tr>",
+ "max_cz": 1881,
+ "max_depth2q": 38,
+ "n_ki": 100
+}

@@ -1,0 +1,9 @@
+# Tested with Python 3.12 on Linux (Oct 14, 2026)
+qiskit[visualization]==2.5.2
+qiskit-aer==0.17.2
+qiskit-ibm-runtime==0.50.0
+numpy
+scipy
+matplotlib
+jupyterlab
+nbformat

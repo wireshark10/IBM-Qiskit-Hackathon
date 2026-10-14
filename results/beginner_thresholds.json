@@ -1,0 +1,62 @@
+[
+ {
+  "formula": "lie",
+  "obs": "Mz",
+  "steps": 12,
+  "dt": 0.16666666666666666,
+  "err": 0.00984877088487283,
+  "cx_qiskit": 168,
+  "cx_per_step": 14,
+  "cx_merged": 154
+ },
+ {
+  "formula": "lie",
+  "obs": "Mx",
+  "steps": 132,
+  "dt": 0.015151515151515152,
+  "err": 0.009945749356872258,
+  "cx_qiskit": 1848,
+  "cx_per_step": 14,
+  "cx_merged": 1834
+ },
+ {
+  "formula": "suzuki",
+  "obs": "Mz",
+  "steps": 12,
+  "dt": 0.16666666666666666,
+  "err": 0.009848770884873643,
+  "cx_qiskit": 336,
+  "cx_per_step": 28,
+  "cx_merged": 168
+ },
+ {
+  "formula": "suzuki",
+  "obs": "Mx",
+  "steps": 11,
+  "dt": 0.18181818181818182,
+  "err": 0.008874983271252468,
+  "cx_qiskit": 308,
+  "cx_per_step": 28,
+  "cx_merged": 154
+ },
+ {
+  "formula": "strang",
+  "obs": "Mz",
+  "steps": 17,
+  "dt": 0.11764705882352941,
+  "err": 0.009916728688852556,
+  "cx_qiskit": 442,
+  "cx_per_step": 26,
+  "cx_merged": 238
+ },
+ {
+  "formula": "strang",
+  "obs": "Mx",
+  "steps": 9,
+  "dt": 0.2222222222222222,
+  "err": 0.00844023851150455,
+  "cx_qiskit": 234,
+  "cx_per_step": 26,
+  "cx_merged": 126
+ }
+]
