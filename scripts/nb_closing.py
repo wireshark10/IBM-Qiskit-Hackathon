@@ -20,12 +20,14 @@ C(md(r"""
 | Light-cone certification | any local circuit, any N | cost $2^{2t+2}$: about $t\le 11$ on a laptop | §3.1 |
 
 **Honest limitations**
+* **No real-QPU data.** IBM Quantum account verification (a card check) was not possible for us before the deadline, so the 100-qubit results come from a noise model built from IBM Heron r2 (*ibm_fez* snapshot) calibration. That model has depolarising gate errors and readout errors, but no coherent errors, crosstalk, leakage or drift. Real hardware would decay faster, and the ZNE horizon would be shorter. The submission script, PUBs and options are validated against the FakeFez target and ready to run (about 4 QPU minutes).
 * **Classical simulability.** The 100-qubit circuits are classically easy *because* we chose an integrable 1D model. That is what makes the hardware data certifiable. The same pipeline (layout search, mitigation, trust horizon) applies unchanged to a non-integrable variant, but then only the light cone ($t\lesssim 11$), the Clifford point and internal consistency checks remain.
 * **The noise model.** Our fast simulator uses a Pauli approximation built from FakeFez calibration. It ignores coherent errors and crosstalk, so it cannot show the benefit of twirling or dynamical decoupling. Both are applied on the real device.
 * **ZNE by gate folding** triples or quintuples circuit depth. At the deepest circuits ($t\ge 16$: ~1500–1900 CZ) the λ=5 data sits near the noise floor. Probabilistic error amplification (PEA, as in Kim *et al.*) or PEC would be the next step, at a higher QPU-time cost than our 10-minute Open Plan budget allows.
-* **Statistics.** We used ~1000 shots per circuit per noise factor on hardware, so per-site values have σ ≈ 0.03–0.1 after extrapolation. Averages over 100 sites are much tighter.
+* **Statistics.** The emulator's Clifford-point runs use 400 shots per circuit, split over 4 TREX masks, matching the planned QPU budget (Job A: ~1100 shots per circuit per noise factor). Per-site values carry σ ≈ 0.05 after extrapolation; chain averages are much tighter. The light-cone windows average 200 noise trajectories and carry no measurement shot noise.
 
 **Next steps**
+* Run the prepared jobs on a real Heron QPU (`hardware/run_hardware.py submit`, ~4 Open Plan minutes). The notebook picks up `results/hardware_*.npz` automatically, and comparing with the emulator then measures how much noise the calibration data does *not* explain (coherent errors, crosstalk, drift).
 * Break integrability with a small longitudinal field, and certify with light-cone windows plus Clifford-perturbation checks.
 * Use PEA-based ZNE with learned layer noise. Our circuits contain only two distinct CZ layers (even and odd bonds), so learning them is cheap.
 * Use fractional `RZZ` gates on Heron for the TFIM: one native gate per bond instead of two CZs, halving depth.
@@ -48,6 +50,14 @@ ki_meta = [m for m in meta_A if m["kind"] == "ki"]
 summary["max_cz"] = max(m["ops"].get("cz", 0) for m in ki_meta)
 summary["max_depth2q"] = max(m["depth_2q"] for m in ki_meta)
 summary["n_ki"] = N_KI
+emu_h = json.load(open(RESULTS / "emu_horizon.json"))["emu_horizon"] if (RESULTS / "emu_horizon.json").exists() else None
+if (RESULTS / "emu_horizon.json").exists():
+    summary["emu_takeaway"] = json.load(open(RESULTS / "emu_horizon.json")).get("emu_takeaway", "")
+if emu_h and not HAVE_HW:
+    summary["trust_headline"] = f"t = {emu_h.get('0', 0)} recovered"
+    summary["trust_sub"] = (f"θ_h=0 M_z within 0.05 of exact at 1881 CZ (100-qubit noisy emulation); "
+                            f"stabilisers only to t = {emu_h.get('π/2 (stabiliser)', 0)} (weight ≤ 7)")
+    summary["horizon_text"] = ", ".join(f"{k}: t={v}" for k, v in emu_h.items())
 if HAVE_HW:
     dev = {lab: np.abs(hw[lab]["zne_z"].mean(1) - mz_exact_ki[lab]) for lab in TH}
     summary["horizon_text"] = ", ".join(f"θ_h={k}: t={v}" for k, v in horizon.items())

@@ -183,7 +183,14 @@ def dry_run():
 def submit():
     from qiskit_ibm_runtime import QiskitRuntimeService, EstimatorV2, SamplerV2
     service = QiskitRuntimeService()
-    name = sys.argv[2] if len(sys.argv) > 2 else None          # optional: force a backend name
+    # Safety: only ever spend free Open Plan minutes. Refuse if the active instance is a paid plan.
+    active = (service.active_account() or {}).get("instance")
+    plans = {i.get("crn"): str(i.get("plan", "")).lower() for i in service.instances()}
+    plan = plans.get(active, "unknown")
+    print("active instance plan:", plan)
+    if plan != "open" and "--allow-paid" not in sys.argv:
+        raise SystemExit(f"Refusing to submit: instance plan is '{plan}', not 'open' (pass --allow-paid to override).")
+    name = next((a for a in sys.argv[2:] if not a.startswith("--")), None)   # optional: force a backend name
     backend = service.backend(name) if name else service.least_busy(operational=True, simulator=False,
                                                                       min_num_qubits=N_KI + 20)
     print("backend:", backend.name, "| pending jobs:", backend.status().pending_jobs)

@@ -60,9 +60,9 @@ th { background: #f4f4f4 }
 slides = []
 
 slides.append(f"""
-<div class="tag b">QISKIT FALL FEST 2026 · IIIT-DELHI · TRACK 3 QUANTUM SIMULATION · ADVANCED</div>
+<div class="tag b">QISKIT FALL FEST 2026 · IIIT-DELHI · TRACK 3 QUANTUM SIMULATION · INTERMEDIATE + ADVANCED ANALYSIS</div>
 <h1 style="font-size:40px;margin-top:16px">Dynamics Under Noise</h1>
-<h2 style="font-size:20px">From an 8-spin Trotter study to a <b>certified 100-qubit kicked-Ising run</b> on {backend}</h2>
+<h2 style="font-size:20px">From an 8-spin Trotter study to a <b>certified 100-qubit kicked-Ising experiment</b> on a calibrated IBM Heron noise model</h2>
 <div class="tiles">
  <div class="tile"><b>100 qubits</b><span>error-aware line on heavy-hex, <b>0 SWAPs</b></span></div>
  <div class="tile"><b>{s('max_cz', '1881')} CZ</b><span>deepest circuit, 2q depth {s('max_depth2q', '38')}, 20 Floquet steps</span></div>
@@ -72,8 +72,9 @@ slides.append(f"""
 <ul>
  <li><b>Beginner:</b> for Z observables from |0…0⟩, Lie-Trotter <i>is</i> Suzuki-Trotter, exactly. Mx needs 2nd order: 13× fewer CX for 0.01 accuracy.</li>
  <li><b>Intermediate:</b> 2nd-order accuracy at 1st-order CZ cost. Our own TREX + ZNE on FakeFez noise. The noise-optimal Trotter step.</li>
- <li><b>Advanced:</b> TREX + twirling + DD + ZNE on a real QPU, certified against exact answers at <b>every</b> depth without brute force.</li>
+ <li><b>Advanced:</b> 100-qubit kicked Ising (0 SWAPs) on a noise model from the chosen line's calibration, with TREX + ZNE, certified against exact answers at <b>every</b> depth. QPU jobs prepared and validated; no QPU access before the deadline.</li>
 </ul>
+<div style="margin-top:10px">{fig('a6_emulation', 255)}</div>
 <div class="foot"><span>{TEAM['team']} · {', '.join(TEAM['members'])}</span><span>notebook: track3_dynamics_under_noise.ipynb</span></div>
 """)
 
@@ -141,31 +142,29 @@ slides.append(f"""
 """)
 
 slides.append(f"""
-<div class="tag r">ADVANCED · 100-QUBIT HARDWARE RESULTS · {backend}</div>
-<h1>Mitigated 100-qubit magnetisation vs the exact solution</h1>
-<div class="cols"><div style="flex:1.6">{fig('a1_mz_100q', 520)}</div>
+<div class="tag r">ADVANCED · 100 QUBITS · CALIBRATED IBM HERON NOISE MODEL</div>
+<h1>The 100-qubit experiment, noisy, mitigated, and checked against exact answers</h1>
+<div class="cols"><div style="flex:2.1">{fig('a6_emulation', 520)}</div>
 <div><ul>
-<li><b>Raw</b>: SamplerV2, no mitigation.</li>
-<li><b>λ = 1</b>: Pauli twirling + TREX + XpXm DD.</li>
-<li><b>ZNE</b>: gate folding λ = 1, 3, 5, exponential extrapolation.</li>
-<li>Lines: exact free-fermion solution.</li>
+<li><b>Clifford points</b> (θ<sub>h</sub> = 0, π/2): a stabiliser simulation of the <b>entire</b> noisy 100-qubit circuit is exact, so we run it at full size up to 20 steps / 1881 CZ, including folded ZNE circuits.</li>
+<li><b>Other angles</b>: noise outside the light cone cannot matter, so we simulate exact (2t+1)-qubit windows at 5 positions on the line.</li>
+<li>Noise: per-gate CZ/SX errors + asymmetric readout of the <i>chosen</i> 100 qubits (ibm_fez snapshot).</li>
 </ul>
-<div class="key">{s('hw_takeaway', 'Hardware results pending.')}</div>
-<p class="small">{s('hw_jobs', '')}</p></div></div>
-<div class="foot"><span>EstimatorV2 (Job A) · SamplerV2 (Job C) · Open Plan, no sessions</span><span>§3.3</span></div>
+<div class="key">{s('emu_takeaway', 'TREX + ZNE restores the exact values; see notebook §3.3.')}</div></div></div>
+<div class="foot"><span>no QPU access before the deadline (account verification); jobs are ready in hardware/run_hardware.py</span><span>§3.3</span></div>
 """)
 
 slides.append(f"""
-<div class="tag r">ADVANCED · CERTIFICATION & TRUST HORIZON</div>
-<h1>How far can we trust the device, and how would we know without an exact answer?</h1>
-<div class="cols"><div>{fig('a3_clifford', 300)}{fig('a4_longrange', 250)}</div>
-<div>{fig('a2_zz_profile', 230)}
-<ul>
-<li><b>Clifford check</b>: a weight-(2t−1) stabiliser should read +1. Its decay measures the error per light-cone layer.</li>
-<li><b>Trust horizon</b>: deepest t with |mitigated − exact| ≤ max(2σ, 0.05): {s('horizon_text', 'pending')}.</li>
-<li><b>Without an exact answer</b>: exponential vs linear ZNE agreement, Clifford-point decay, and light-cone windows for t ≲ 11.</li>
-</ul></div></div>
-<div class="foot"><span>raw bitstrings give ⟨Z<sub>i</sub>Z<sub>j</sub>⟩ at any distance after per-qubit readout inversion</span><span>§3.4–3.6</span></div>
+<div class="tag r">ADVANCED · TRUST HORIZON · QPU-READY</div>
+<h1>How far can we trust it, and how would we know without an exact answer?</h1>
+<div class="cols"><div>{fig('a1_mz_100q', 430)}</div>
+<div><ul>
+<li><b>Trust horizon</b> (|ZNE − exact| ≤ 0.05): {s('horizon_text', 'see notebook')}.</li>
+<li><b>Which agreements count</b>: noise pulls ⟨Z⟩ towards 0, so θ<sub>h</sub> = 3π/8 (exact ≈ 0) "agrees" for free. High-signal observables (θ<sub>h</sub> = 0, π/8, Clifford stabilisers) are the real test.</li>
+<li><b>Without an exact answer</b>: exponential vs linear ZNE spread, Clifford-point decay and light-cone windows (t ≲ 11).</li>
+<li><b>QPU-ready</b>: 3 jobs (EstimatorV2 with TREX + twirling + XpXm DD + ZNE; SamplerV2 raw + readout calibration), PUBs validated, ≈ 4 Open Plan minutes. Every CZ count equals (t−1)·99, proving 0 SWAPs.</li>
+</ul><div class="key"><b>The horizon depends on observable weight.</b> Local ⟨Z⟩ at 1881 CZ is recovered to 0.96 (exact 1), but a Pauli spread over 15+ qubits decays below the shot-noise floor at λ = 5 and ZNE cannot bring it back: weight-7 stabilisers pass, weight-11 and beyond fail.</div></div></div>
+<div class="foot"><span>exact M<sub>z</sub>(t) for the 4 angles on the left; free-fermion Pfaffians, 0.3 s each</span><span>§3.2–3.7</span></div>
 """)
 
 slides.append(f"""
@@ -174,10 +173,13 @@ slides.append(f"""
 <div class="cols"><div><ul>
 <li><b>Classically easy by design</b>: integrability lets us certify. A longitudinal field h<sub>z</sub> breaks it, leaving only light cone + Clifford + consistency checks.</li>
 <li><b>Gate-folding ZNE</b> multiplies depth by 3–5. At t ≥ 16 (1500+ CZ) λ = 5 nears the noise floor and the fits disagree.</li>
-<li><b>Pauli noise model</b> in simulation cannot show the value of twirling or DD (coherent errors), so we apply those on the QPU.</li>
+<li><b>No real-QPU data</b>: the noise model has no coherent errors, crosstalk or drift. Real hardware would decay faster. Twirling and DD target exactly those effects.</li>
 <li><b>Next</b>: PEA-ZNE with learned layer noise (only 2 distinct CZ layers), fractional RZZ for the TFIM (halves depth), a non-integrable chain.</li>
 </ul></div>
-<div><table><tr><th>QPU job</th><th>primitive</th><th>QPU seconds</th></tr>{s('usage_rows', '<tr><td colspan=3>pending</td></tr>')}</table>
+<div><table><tr><th>prepared QPU job</th><th>primitive</th><th>content</th></tr>
+<tr><td>A</td><td>EstimatorV2: TREX, twirl, DD, ZNE</td><td>52 kicked-Ising + 7 Clifford circuits, 100 qubits</td></tr>
+<tr><td>B</td><td>EstimatorV2: same options</td><td>8 TFIM circuits, 12 qubits</td></tr>
+<tr><td>C</td><td>SamplerV2 (raw)</td><td>26 circuits + readout calibration</td></tr></table>
 <ul style="margin-top:14px">
 <li>Everything in one notebook that runs top to bottom (~5 min). QPU and long sweeps are cached in <code>results/</code>.</li>
 <li><code>hardware/run_hardware.py</code>: dry-run / submit / fetch with the exact same circuits.</li>

@@ -810,7 +810,8 @@ class CompactSim:
 
 
 def noisy_bulk_z(backend, line: list[int], steps: int, thetas, center: int | None = None,
-                 trajectories: int = 400, seed: int = 1, threads: int = 0, readout: bool = True):
+                 trajectories: int = 400, seed: int = 1, threads: int = 0, readout: bool = True,
+                 factor: int = 1):
     """Noise-model prediction of a BULK <Z_c> of the kicked-Ising chain on ``line``.
 
     Pauli noise outside the backward light cone [c-t, c+t] of Z_c cannot change
@@ -827,6 +828,8 @@ def noisy_bulk_z(backend, line: list[int], steps: int, thetas, center: int | Non
     th = Parameter("th")
     pm = generate_preset_pass_manager(optimization_level=2, backend=backend, initial_layout=seg)
     isa = pm.run(kicked_ising_circuit(w, steps, th))
+    if factor > 1:
+        isa = fold_two_qubit_gates(isa, factor)          # ZNE noise amplification
     comp = compact_circuit(isa, seg)
     comp.save_expectation_value(SparsePauliOp(pauli_label(w, {steps: "Z"})), range(w), label="z")
     nm = compact_noise_model(backend, seg)
@@ -842,3 +845,55 @@ def noisy_bulk_z(backend, line: list[int], steps: int, thetas, center: int | Non
         m, b = 1 - P[0][1] - P[1][0], P[1][0] - P[0][1]
         vals = [m * v + b for v in vals]
     return np.array(vals)
+
+
+def cliffordize(circ: QuantumCircuit, tol: float = 1e-8) -> QuantumCircuit:
+    """Replace every rz(k*pi/2) by its exact Clifford (I, S, Z, Sdg) so Aer's stabilizer
+    method accepts the circuit. RZ is a virtual, noiseless frame change on IBM hardware,
+    so this changes nothing physically. Raises if an angle is not Clifford."""
+    out = circ.copy_empty_like()
+    for inst in circ.data:
+        op = inst.operation
+        if op.name == "rz":
+            th = float(op.params[0])
+            k = round(th / (np.pi / 2))
+            if abs(th - k * np.pi / 2) > tol:
+                raise ValueError(f"non-Clifford rz({th})")
+            g = {0: None, 1: "s", 2: "z", 3: "sdg"}[k % 4]
+            if g:
+                getattr(out, g)(inst.qubits[0])
+        else:
+            out.append(inst)
+    return out
+
+
+def kicked_ising_clifford_native(n: int, steps: int, theta_h: float, basis_ops=None,
+                                 mask=None) -> QuantumCircuit:
+    """Kicked Ising at a Clifford point (theta_h in {0, pi/2}) compiled by hand to native
+    Clifford gates: RZZ(-pi/2) = CZ (Sdg x Sdg) and RX(pi/2) = SX, up to global phases.
+    Same CZ count as the transpiled circuit, (t-1)(n-1). ``basis_ops`` maps qubit ->
+    'X'/'Y'/'Z' measurement basis (default Z on all); ``mask`` is a TREX bit-flip mask."""
+    assert min(abs(theta_h), abs(theta_h - np.pi / 2)) < 1e-12
+    qc = QuantumCircuit(n, n)
+    for s in range(steps):
+        if s > 0:
+            for parity in (0, 1):
+                for i in range(parity, n - 1, 2):
+                    qc.cz(i, i + 1); qc.sdg(i); qc.sdg(i + 1)
+        if theta_h > 0:
+            qc.sx(range(n))
+    for q in range(n):
+        b = (basis_ops or {}).get(q, "Z")
+        if b == "X":
+            qc.h(q)
+        elif b == "Y":
+            qc.sdg(q); qc.h(q)
+        if mask is not None and mask[q]:
+            qc.x(q)
+        qc.measure(q, q)
+    return qc
+
+
+def fold_cz_logical(qc: QuantumCircuit, factor: int) -> QuantumCircuit:
+    """CZ folding (CZ -> CZ (CZ CZ)^k) on a logical circuit; barriers keep the copies."""
+    return fold_two_qubit_gates(qc, factor, gate="cz")

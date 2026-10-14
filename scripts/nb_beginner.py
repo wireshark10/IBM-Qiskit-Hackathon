@@ -5,23 +5,23 @@ CELLS = []
 C = CELLS.append
 
 C(md(r"""
-# Dynamics Under Noise: from an 8-spin Trotter study to a certified 100-qubit kicked-Ising run on IBM Quantum
+# Dynamics Under Noise: from an 8-spin Trotter study to a certified 100-qubit kicked-Ising experiment
 
-**Qiskit Fall Fest 2026 · IIIT-Delhi · Track 3: Quantum Simulation** · level targeted: **Advanced**
+**Qiskit Fall Fest 2026 · IIIT-Delhi · Track 3: Quantum Simulation** · Intermediate complete · Advanced analysis on a calibrated 100-qubit Heron noise model (no QPU access before the deadline)
 
-This notebook covers all three levels of the track. It runs top to bottom. The heavy noisy-simulation sweeps and every real-QPU result load from `results/` by default, so the whole notebook finishes in a few minutes. Set `RECOMPUTE = True` to regenerate the simulations, or `RUN_ON_HARDWARE = True` to resubmit to IBM Quantum.
+This notebook covers all three levels of the track. It runs top to bottom. The heavy noisy-simulation sweeps load from `results/` by default, so the whole notebook finishes in a few minutes. Set `RECOMPUTE = True` to regenerate the simulations. The QPU submission script is complete and validated (`hardware/run_hardware.py`). Any hardware results placed in `results/` are picked up automatically.
 
 | Level | What we do | Headline |
 |---|---|---|
 | 🟢 Beginner | 8-spin TFIM, Lie vs Suzuki Trotter, exact `expm` reference | For Z observables from \|0…0⟩, Lie-Trotter **equals** Suzuki-Trotter exactly. The "why it depends on what you measure" question, proven |
 | 🟠 Intermediate | 12-spin TFIM, FakeFez noise, our own TREX + twirling + ZNE, depth cutting | 2nd-order accuracy at 1st-order CZ cost. An error-aware line layout with zero SWAPs |
-| 🔴 Advanced | Kicked (Floquet) Ising chain, **100 qubits**, on an IBM Heron QPU | Certified against **exact** solutions at all depths: free fermions + Pfaffians, light cones and Clifford stabilisers |
+| 🔴 Advanced | Kicked (Floquet) Ising chain, **100 qubits**, compiled for IBM Heron (0 SWAPs) and run on a noise model from that line's calibration | Certified against **exact** solutions at all depths: free fermions + Pfaffians, light cones and Clifford stabilisers. Full 100-qubit noisy simulation at the Clifford points |
 
 **Contents**
 0. Setup
 1. Beginner: getting the simulation right (8 spins)
 2. Intermediate: recovering the physics that noise hides (12 spins)
-3. Advanced: a 100-qubit kicked-Ising chain on IBM hardware, certified without brute force
+3. Advanced: a 100-qubit kicked-Ising chain, certified without brute force
 4. Performance, limitations and what we would do next
 5. Credits and references
 """))
@@ -38,7 +38,7 @@ C(code(r"""
 # !git clone -q --depth 1 https://github.com/REPO_OWNER/REPO_NAME && %cd REPO_NAME
 
 RECOMPUTE = False         # True: re-run the noisy-simulator sweeps (~15 min) instead of loading results/
-RUN_ON_HARDWARE = False   # True: resubmit the QPU jobs (needs a saved IBM Quantum account and QPU minutes)
+# QPU runs: python hardware/run_hardware.py submit | fetch   (needs a saved IBM Quantum account)
 """))
 
 C(code(r"""

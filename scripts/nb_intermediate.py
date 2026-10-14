@@ -211,9 +211,9 @@ plt.tight_layout(); savefig("i2_tradeoff"); plt.show()
 C(md(r"""
 The $M_x$ panel is the informative one. On FakeFez-level noise the raw error is set by noise, not Trotter error, for $\Delta t \lesssim 0.4$. The ZNE-mitigated error reaches its minimum at $\Delta t = 0.25$ (176 CZ), where it meets the noiseless Trotter-error curve. The $M_z(2)$ signal is only about 0.05, so that panel is dominated by shot noise and we do not draw conclusions from it. Going finer adds CZ layers faster than it removes Trotter error. This is why our hardware runs use $\Delta t = 0.25$: the **total** error is what matters, and the Trotter-error-only criterion from the Beginner level would add ~60% more CZ gates for no net gain.
 
-### 2.5 The same 12-spin circuit on a real IBM QPU
+### 2.5 The same 12-spin circuit on a real IBM QPU (prepared, not run)
 
-Job B runs these eight circuits on hardware through IBM's `EstimatorV2`, with TREX, Pauli-twirled CZs, XpXm dynamical decoupling and gate-folding ZNE ($\lambda = 1, 3, 5$). We plot the device result at $\lambda=1$ (twirled, readout-mitigated, before extrapolation) and after ZNE, against our noisy simulation and the exact curve.
+Job B in `hardware/run_hardware.py` submits these eight circuits through IBM's `EstimatorV2`, with TREX, Pauli-twirled CZs, XpXm dynamical decoupling and gate-folding ZNE ($\lambda = 1, 3, 5$). When results exist, the cell below plots the device result at $\lambda=1$ (twirled, readout-mitigated, before extrapolation) and after ZNE, against our noisy simulation and the exact curve. We did not obtain QPU access before the deadline.
 """))
 
 C(code(r"""

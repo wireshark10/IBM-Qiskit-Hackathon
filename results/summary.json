@@ -4,5 +4,9 @@
  "ladder_rows": "<tr><td>raw</td><td>0.027</td><td>0.045</td></tr><tr><td>TREX</td><td>0.031</td><td>0.051</td></tr><tr><td>TREX + ZNE (linear)</td><td>0.021</td><td>0.026</td></tr><tr><td>TREX + ZNE (exp)</td><td>0.019</td><td>0.019</td></tr>",
  "max_cz": 1881,
  "max_depth2q": 38,
- "n_ki": 100
+ "n_ki": 100,
+ "emu_takeaway": "\u03b8_h=0, t=20 (1881 CZ): raw 0.78 \u2192 TREX+ZNE 0.96 (exact 1); weight-39 stabiliser: raw 0.08 \u2192 -0.03 (exact 1).",
+ "trust_headline": "t = 20 recovered",
+ "trust_sub": "\u03b8_h=0 M_z within 0.05 of exact at 1881 CZ (100-qubit noisy emulation); stabilisers only to t = 4 (weight \u2264 7)",
+ "horizon_text": "0: t=20, \u03c0/2 (stabiliser): t=4, \u03c0/8: t=7, \u03c0/4: t=7, 3\u03c0/8: t=7"
 }

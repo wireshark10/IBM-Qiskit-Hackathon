@@ -5,7 +5,7 @@ CELLS = []
 C = CELLS.append
 
 C(md(r"""
-## 3 · 🔴 Advanced: a 100-qubit kicked-Ising chain on IBM hardware, certified without brute force
+## 3 · 🔴 Advanced: a 100-qubit kicked-Ising chain, certified without brute force
 
 **Model** (as in Kim *et al.*, Nature 618, 500 (2023), on a 1D chain). One Floquet step is
 
@@ -115,7 +115,112 @@ print("CZ count == (t-1)(N-1) for every circuit: the router inserted no SWAPs.")
 """))
 
 C(md(r"""
-### 3.3 Results: 100-qubit magnetisation against the exact solution
+### 3.3 The 100-qubit experiment on a calibrated noise model
+
+**QPU status.** We could not complete IBM Quantum account verification before the deadline, so we have no real-QPU data. The submission script is complete and validated against the FakeFez target. The rest of the Advanced analysis therefore runs on a **noise model built from the calibration of the exact 100-qubit line we would use**: FakeFez is a snapshot of IBM Heron r2 *ibm_fez*. It contains per-gate CZ / SX / X depolarising errors and per-qubit asymmetric readout errors. We are explicit about what this does and does not test (see §4).
+
+How we simulate 100 noisy qubits exactly, without brute force:
+* **Clifford points, full chain.** At $\theta_h=0$ and $\theta_h=\pi/2$ the circuit is Clifford, and the noise is Pauli. A stabiliser simulation of the *entire* 100-qubit noisy circuit is therefore exact and polynomial, including CZ-folded circuits for ZNE, with real shot noise (400 / 800 shots). We compile these points by hand, using $R_{ZZ}(-\pi/2)\simeq CZ\,(S^\dagger\!\otimes S^\dagger)$ and $R_X(\pi/2)\simeq SX$, which gives the same CZ count, (t−1)·99, as the transpiled circuits.
+* **Non-Clifford angles, light-cone windows.** For $\theta_h\in\{\pi/8,\pi/4,3\pi/8\}$, Pauli noise outside the backward light cone cannot affect $\langle Z_c\rangle$. So `il.noisy_bulk_z` simulates the $(2t+1)$-qubit window of the real line exactly, averaging 200 noise trajectories. We do this at 5 different positions along the chain, which samples the spatial variation of the device noise.
+
+Mitigation is identical to the QPU plan: TREX readout twirling, then ZNE by CZ folding ($\lambda=1,3,5$, exponential and linear extrapolation).
+"""))
+
+C(code(r"""
+emu = {k: json.load(open(RESULTS / f"emu_{k}.json")) for k in ("z0", "stab", "windows") if (RESULTS / f"emu_{k}.json").exists()}
+F = np.array([1, 3, 5])
+def zne(stack, kind="exponential"):
+    return il.extrapolate_zero(F, np.asarray(stack, float), kind)
+
+fig, axes = plt.subplots(2, 3, figsize=(14, 7.2))
+emu_dev = {}
+if "z0" in emu:
+    e = emu["z0"]; nt = min(len(e["trex"][str(f)]) for f in F); t = np.array(e["t"][:nt])
+    st = np.array([e["trex"][str(f)][:nt] for f in F]); e = {**e, "raw": e["raw"][:nt]}
+    ax = axes[0, 0]
+    ax.axhline(1, color=COL["exact"], lw=2, label="exact (= 1)")
+    ax.plot(t, e["raw"], "o:", color=COL["raw"], label="noisy, raw")
+    ax.plot(t, st[0], "s--", color=COL["trex"], label="+ TREX (λ=1)")
+    ax.plot(t, zne(st, "linear"), "v-", color="#e377c2", label="+ ZNE linear")
+    ax.plot(t, zne(st), "D-", color=COL["zne"], label="+ ZNE exponential")
+    ax.set_title("θ_h = 0: full 100-qubit noisy simulation"); ax.set_xlabel("Floquet steps t"); ax.set_ylabel("$M_z$")
+    ax.legend(fontsize=7.5); emu_dev["0"] = (t, np.abs(zne(st) - 1))
+if "stab" in emu:
+    e = emu["stab"]; nt = min(len(e["trex"][str(f)]) for f in F)
+    w = np.array(e["weights"][:nt]).mean(1); st = np.array([e["trex"][str(f)][:nt] for f in F]).mean(-1)
+    e = {**e, "raw": e["raw"][:nt], "t": e["t"][:nt]}
+    ax = axes[0, 1]
+    ax.axhline(1, color=COL["exact"], lw=2, label="exact (+1)")
+    ax.plot(w, np.array(e["raw"]).mean(1), "o:", color=COL["raw"], label="noisy, raw")
+    ax.plot(w, st[0], "s--", color=COL["trex"], label="+ TREX")
+    ax.plot(w, zne(st, "linear"), "v-", color="#e377c2", label="+ ZNE linear")
+    ax.plot(w, zne(st), "D-", color=COL["zne"], label="+ ZNE exponential")
+    ax.set_title("θ_h = π/2: Clifford stabilisers, 100 qubits"); ax.set_xlabel("stabiliser weight 2t−1")
+    ax.set_ylabel(r"$\langle S_c\rangle$ (2 centres)"); ax.legend(fontsize=7.5)
+    emu_dev["π/2 (stabiliser)"] = (np.array(e["t"]), np.abs(zne(st) - 1))
+if "windows" in emu:
+    e = emu["windows"]; nt = min(len(e["trex"][str(f)]) for f in F); t = np.array(e["t"][:nt]); labs = ["π/8", "π/4", "3π/8"]
+    raw = np.array(e["raw"][:nt]); st = np.array([e["trex"][str(f)][:nt] for f in F])   # (F, t, theta)
+    for a, (ax, lab) in enumerate(zip(axes[1], labs)):
+        ex = np.array([il.free_fermion_profile(N_KI, int(tt), TH[lab])[0][N_KI // 2] for tt in t])
+        ax.plot(t, ex, "-", color=COL["exact"], lw=2, label="exact")
+        ax.plot(t, raw[:, a], "o:", color=COL["raw"], label="noisy, raw")
+        ax.plot(t, st[0, :, a], "s--", color=COL["trex"], label="+ TREX")
+        ax.plot(t, zne(st[:, :, a], "linear"), "v-", color="#e377c2", label="+ ZNE linear")
+        ax.plot(t, zne(st[:, :, a]), "D-", color=COL["zne"], label="+ ZNE exponential")
+        ax.set_title(f"θ_h = {lab}: bulk ⟨Z⟩ (5 positions on the line)"); ax.set_xlabel("Floquet steps t")
+        emu_dev[lab] = (t, np.abs(zne(st[:, :, a]) - ex))
+    axes[1, 0].set_ylabel(r"bulk $\langle Z_i\rangle$"); axes[1, 0].legend(fontsize=7.5)
+ax = axes[0, 2]                                   # residuals: the trust horizon at a glance
+for lab, (t_, d_) in emu_dev.items():
+    ax.semilogy(t_, np.maximum(d_, 1e-4), "o-", ms=4, label=f"θ_h = {lab}")
+ax.axhline(0.05, color="k", ls="--", lw=1, label="trust threshold 0.05")
+ax.set_xlabel("Floquet steps t"); ax.set_ylabel("|TREX+ZNE − exact|"); ax.set_title("mitigated error vs depth")
+ax.legend(fontsize=7)
+plt.suptitle(f"100-qubit kicked Ising on the calibrated {emu.get('z0', emu.get('windows', {})).get('backend', 'FakeFez')} noise model", y=1.0)
+plt.tight_layout(); savefig("a6_emulation"); plt.show()
+"""))
+
+C(md(r"""
+**Trust horizon on the emulator.** For each observable we list $|\text{ZNE}-\text{exact}|$ by depth, and the deepest $t$ that stays within 0.05. Depolarising noise pulls values towards 0, so the high-signal observables decide the horizon: $\theta_h=0$ (exact 1), the stabilisers (exact +1, weight up to 39) and $\theta_h=\pi/8$. At $3\pi/8$ even raw data "agrees" late in time, because the exact answer is itself near 0.
+"""))
+
+C(code(r"""
+emu_horizon = {}
+for lab, (t, d) in emu_dev.items():
+    ok = d <= 0.05
+    passing = [int(tt) for tt, o in zip(t, ok) if o]
+    emu_horizon[lab] = max(passing) if passing else 0
+    print(f"{lab:>18s}: " + "  ".join(f"t={int(tt)}:{dd:.3f}{'✓' if o else '✗'}" for tt, dd, o in zip(t, d, ok)))
+print("\ntrust horizon on the 100-qubit emulator (deepest t with |ZNE − exact| ≤ 0.05):", emu_horizon)
+if "z0" in emu:
+    nt = min(len(emu["z0"]["trex"][str(f)]) for f in F)
+    st = np.array([emu["z0"]["trex"][str(f)][:nt] for f in F])
+    print("θ_h=0  |exp − linear ZNE| by depth:", np.round(np.abs(zne(st) - zne(st, "linear")), 3),
+          " (internal consistency, needs no exact answer)")
+parts = []
+if "z0" in emu:
+    nt = min(len(emu["z0"]["trex"][str(f)]) for f in F); tl = emu["z0"]["t"][nt - 1]
+    st = np.array([emu["z0"]["trex"][str(f)][:nt] for f in F])
+    parts.append(f"θ_h=0, t={tl} ({(tl-1)*99} CZ): raw {emu['z0']['raw'][nt-1]:.2f} → TREX+ZNE {zne(st)[-1]:.2f} (exact 1)")
+if "stab" in emu:
+    nt = min(len(emu["stab"]["trex"][str(f)]) for f in F)
+    st = np.array([emu["stab"]["trex"][str(f)][:nt] for f in F]).mean(-1)
+    parts.append(f"weight-{max(emu['stab']['weights'][nt-1])} stabiliser: raw {np.mean(emu['stab']['raw'][nt-1]):.2f} → {zne(st)[-1]:.2f} (exact 1)")
+emu_takeaway = "; ".join(parts) + "."
+print(emu_takeaway)
+json.dump({"emu_horizon": emu_horizon, "emu_takeaway": emu_takeaway}, open(RESULTS / "emu_horizon.json", "w"))
+"""))
+
+C(md(r"""
+**What the 100-qubit emulation shows.**
+* **Local observables survive deep circuits.** At $\theta_h=0$, $M_z$ after 20 Floquet steps (1881 CZ) is 0.78 raw. TREX + ZNE brings it back to 0.96 against an exact 1, so it passes the 0.05 threshold at every depth. At the non-Clifford angles the bulk $\langle Z\rangle$ is recovered to within 0.043 up to $t=7$, the deepest window we emulated.
+* **The trust horizon depends on observable weight.** A Clifford stabiliser of weight $w=2t-1$ is sensitive to an error anywhere on its $w$ qubits. Its signal falls like $\sim e^{-\gamma w t}$. At weight 7 ($t=4$) ZNE still lands within 0.04 of +1. From weight 11 on, the $\lambda=5$ data has decayed into the shot noise, and extrapolation fails: −0.03 instead of +1 at weight 39. Any claim about high-weight correlators at this depth would need PEC/PEA-level mitigation or far more shots.
+* **Internal consistency tracks the true error.** The spread between exponential and linear ZNE grows from 0.001 to 0.08 with depth, mirroring the true error. This is the warning light we would rely on where no exact answer exists.
+"""))
+
+C(md(r"""
+### 3.4 Real-QPU results (fill in automatically when `results/hardware_*.npz` exist)
 
 Below: raw device data (Sampler, no mitigation), the twirled and readout-mitigated estimate at $\lambda=1$, the ZNE estimate, and the exact free-fermion curve, for each $\theta_h$.
 """))
@@ -244,7 +349,7 @@ else:
 """))
 
 C(md(r"""
-### 3.4 Clifford-point certification: does the mitigated device return exactly +1?
+### 3.5 Clifford-point certification on the QPU
 
 At $\theta_h=\pi/2$ the circuit is Clifford. The evolved stabiliser $S_c(t)=U Z_c U^\dagger$ is a Pauli string of weight $2t-1$ with $\langle S_c\rangle=+1$ exactly, at any size. This is the hardest observable we measure: it is sensitive to an error **anywhere in its growing support**. Its decay with weight is a direct readout of the device's error per light-cone layer, and ZNE should restore it towards 1.
 """))
@@ -271,7 +376,7 @@ if HAVE_HW:
 """))
 
 C(md(r"""
-### 3.5 Long-range correlations from raw bitstrings
+### 3.6 Long-range correlations from raw QPU bitstrings
 
 The Sampler shots give the full 100-bit snapshot of every run. From them we read off $\langle Z_iZ_j\rangle$ at **any** distance, after inverting each qubit's readout channel, and compare with exact Pfaffians. Short distances probe local error rates. The decay with distance is the physics: the correlations of a free-fermion quench spreading at finite speed.
 """))
@@ -300,7 +405,7 @@ if raw:
 """))
 
 C(md(r"""
-### 3.6 How far can we trust the device? The trust horizon
+### 3.7 Trust horizon on the QPU
 
 We call a result **trustworthy** at depth $t$ when the mitigated $M_z$ agrees with the exact value within $\max(2\sigma, 0.05)$, where $\sigma$ is the reported standard error. Below we report, for each angle, the deepest circuit that passes. We also include an internal-consistency test that needs **no exact answer**: the spread between the exponential and linear ZNE extrapolations. When that spread grows larger than the statistical error, the extrapolation is no longer reliable. In a regime with no exact solution we would rely on this test, together with the Clifford-point decay from §3.4.
 
